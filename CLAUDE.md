@@ -24,6 +24,7 @@ is the developers' repo — not used here.
 - Owned and run only by the Senior SQA (Md Shahiduz Zaman). Development environment only.
 - **Do not commit or push without explicit confirmation.** Remote: https://github.com/zamanqa/test-automation-platform
   (PUBLIC, owner's choice; first push 2026-09-30). Never commit `.env`, `.auth/` or `reports/` (git-ignored).
+  Branches: work and commit on `development` (default branch, CI runs only there). Merge development → main ONLY when the owner says so.
 - The databases are the shared dev databases with full read/write access. Tests
   change real rows; crons are switched off during some tests. Ask before running
   data-changing tests unless the owner has said to proceed.

@@ -1,6 +1,7 @@
 name: Run tests
 
-# Manual: Actions → "Run tests" → Run workflow → pick a suite.
+# Manual: Actions → "Run tests" → Run workflow → branch "development" → pick a suite.
+# Tests run only from the development branch (main receives merges from development on the owner's command).
 # Targets the development environment only.
 on:
   workflow_dispatch:
@@ -9,7 +10,7 @@ on:
         description: Which suite to run
         required: true
         type: choice
-        options: [unified-api, customer-api, hub-e2e, checkout-e2e, all]
+        options: [unified-api, customer-api, hub-e2e, checkout-e2e, pos-e2e, css-e2e, all]
 
 concurrency:
   # Suites share one dev database and some change global state (crons), so never overlap runs.
@@ -18,6 +19,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -33,6 +35,10 @@ jobs:
       HUB_API_PASSWORD: ${{ secrets.HUB_API_PASSWORD }}
       CHECKOUT_URL: ${{ secrets.CHECKOUT_URL }}
       CHECKOUT_API_URL: ${{ secrets.CHECKOUT_API_URL }}
+      CSS_URL: ${{ secrets.CSS_URL }}
+      POS_URL: ${{ secrets.POS_URL }}
+      POS_LOCATION_ID: ${{ secrets.POS_LOCATION_ID }}
+      POS_PASSWORD: ${{ secrets.POS_PASSWORD }}
       CUSTOMER_API_BASE_URL: ${{ secrets.CUSTOMER_API_BASE_URL }}
       CUSTOMER_API_VERSION: ${{ secrets.CUSTOMER_API_VERSION }}
       CUSTOMER_API_USERNAME: ${{ secrets.CUSTOMER_API_USERNAME }}
@@ -66,7 +72,7 @@ jobs:
 
       # Only UI suites need a browser; API suites skip the download.
       - name: Install Google Chrome and ffmpeg (video on failure)
-        if: contains(fromJSON('["hub-e2e","checkout-e2e","all"]'), inputs.suite)
+        if: contains(fromJSON('["hub-e2e","checkout-e2e","pos-e2e","css-e2e","all"]'), inputs.suite)
         run: npx playwright install --with-deps chrome ffmpeg
 
       - name: Run ${{ inputs.suite }}

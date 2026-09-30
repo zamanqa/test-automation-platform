@@ -195,5 +195,8 @@ Rules (most are checked by `npm run lint`):
 
 ## 9. CI
 
-GitHub → **Actions** → **Run tests** → **Run workflow** → pick a suite. Uses the repository secrets (3.4).
+GitHub → **Actions** → **Run tests** → **Run workflow** → branch `development` → pick a suite. Uses the repository secrets (3.4).
+
+**Branches:** `development` is the default branch — all work and all test runs happen there (the workflow runs only on
+`development`). `main` is updated only by merging `development` into it when the owner decides.
 Only one run at a time, because all suites share one dev database.
