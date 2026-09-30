@@ -1,0 +1,86 @@
+name: Run tests
+
+# Manual: Actions → "Run tests" → Run workflow → pick a suite.
+# Targets the development environment only.
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which suite to run
+        required: true
+        type: choice
+        options: [unified-api, customer-api, hub-e2e, checkout-e2e, all]
+
+concurrency:
+  # Suites share one dev database and some change global state (crons), so never overlap runs.
+  group: dev-database
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: true
+      # All values come from repository secrets (Settings → Secrets and variables → Actions).
+      HUB_URL: ${{ secrets.HUB_URL }}
+      HUB_USER_EMAIL: ${{ secrets.HUB_USER_EMAIL }}
+      HUB_USER_PASSWORD: ${{ secrets.HUB_USER_PASSWORD }}
+      HUB_COMPANY_NAME: ${{ secrets.HUB_COMPANY_NAME }}
+      HUB_API_HEALTH_URL: ${{ secrets.HUB_API_HEALTH_URL }}
+      HUB_API_BASE_URL: ${{ secrets.HUB_API_BASE_URL }}
+      HUB_API_EMAIL: ${{ secrets.HUB_API_EMAIL }}
+      HUB_API_PASSWORD: ${{ secrets.HUB_API_PASSWORD }}
+      CHECKOUT_URL: ${{ secrets.CHECKOUT_URL }}
+      CHECKOUT_API_URL: ${{ secrets.CHECKOUT_API_URL }}
+      CUSTOMER_API_BASE_URL: ${{ secrets.CUSTOMER_API_BASE_URL }}
+      CUSTOMER_API_VERSION: ${{ secrets.CUSTOMER_API_VERSION }}
+      CUSTOMER_API_USERNAME: ${{ secrets.CUSTOMER_API_USERNAME }}
+      CUSTOMER_API_PASSWORD: ${{ secrets.CUSTOMER_API_PASSWORD }}
+      CUSTOMER_API_COMPANY_ID: ${{ secrets.CUSTOMER_API_COMPANY_ID }}
+      UNIFIED_API_BASE_URL: ${{ secrets.UNIFIED_API_BASE_URL }}
+      UNIFIED_API_VERSION: ${{ secrets.UNIFIED_API_VERSION }}
+      UNIFIED_API_CONSUMER_KEY: ${{ secrets.UNIFIED_API_CONSUMER_KEY }}
+      UNIFIED_API_CONSUMER_SECRET: ${{ secrets.UNIFIED_API_CONSUMER_SECRET }}
+      HUB_DB_HOST: ${{ secrets.HUB_DB_HOST }}
+      HUB_DB_PORT: ${{ secrets.HUB_DB_PORT }}
+      HUB_DB_NAME: ${{ secrets.HUB_DB_NAME }}
+      HUB_DB_USER: ${{ secrets.HUB_DB_USER }}
+      HUB_DB_PASSWORD: ${{ secrets.HUB_DB_PASSWORD }}
+      CHECKOUT_DB_HOST: ${{ secrets.CHECKOUT_DB_HOST }}
+      CHECKOUT_DB_PORT: ${{ secrets.CHECKOUT_DB_PORT }}
+      CHECKOUT_DB_NAME: ${{ secrets.CHECKOUT_DB_NAME }}
+      CHECKOUT_DB_USER: ${{ secrets.CHECKOUT_DB_USER }}
+      CHECKOUT_DB_PASSWORD: ${{ secrets.CHECKOUT_DB_PASSWORD }}
+      TEST_DATA_PREFIX: qa_auto_
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Only UI suites need a browser; API suites skip the download.
+      - name: Install Google Chrome and ffmpeg (video on failure)
+        if: contains(fromJSON('["hub-e2e","checkout-e2e","all"]'), inputs.suite)
+        run: npx playwright install --with-deps chrome ffmpeg
+
+      - name: Run ${{ inputs.suite }}
+        run: |
+          if [ "${{ inputs.suite }}" = "all" ]; then
+            npx playwright test
+          else
+            npx playwright test --project=${{ inputs.suite }}
+          fi
+
+      - name: Upload report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ inputs.suite }}-${{ github.run_number }}
+          path: reports/
+          retention-days: 14

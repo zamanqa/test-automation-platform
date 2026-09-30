@@ -1,0 +1,47 @@
+{
+  "name": "test-automation-platform",
+  "version": "0.1.0",
+  "description": "Playwright E2E and API automation for Circuly: hub, checkout, customer API and unified customer API",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "hub": "playwright test --project=hub-e2e",
+    "hub:headed": "playwright test --project=hub-e2e --headed",
+    "hub:login": "node -e \"require('fs').rmSync('.auth/hub.json',{force:true})\" && playwright test --project=hub-setup",
+    "checkout": "playwright test --project=checkout-e2e --headed",
+    "checkout:headless": "playwright test --project=checkout-e2e",
+    "stripe": "playwright test --project=checkout-e2e stripe.spec --headed",
+    "adyen": "playwright test --project=checkout-e2e adyen.spec --headed",
+    "braintree": "playwright test --project=checkout-e2e braintree.spec --headed",
+    "mollie": "playwright test --project=checkout-e2e mollie.spec --headed",
+    "pos": "playwright test --project=pos-e2e",
+    "pos:headed": "playwright test --project=pos-e2e --headed",
+    "css": "playwright test --project=css-e2e",
+    "css:headed": "playwright test --project=css-e2e --headed",
+    "summary": "start \"\" reports\\index.html",
+    "api:customer": "playwright test --project=customer-api",
+    "api:unified": "playwright test --project=unified-api",
+    "report": "node scripts/open-report.js",
+    "runner": "node runner/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.4.5",
+    "eslint": "^9.0.0",
+    "eslint-plugin-playwright": "^2.0.0",
+    "pg": "^8.16.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0",
+    "zod": "^3.25.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

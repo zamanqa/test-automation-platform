@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Circuly test runner</title>
+<!-- Page of the browser test runner (runner/server.js). Plain HTML + JavaScript, no framework. -->
+<style>
+  :root { --red:#cf222e; --green:#1a7f37; --yellow:#9a6700; --grey:#6e7781; --line:#e3e6eb; --bg:#f6f7f9; --dark:#1c2330; --blue:#58a6ff; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: var(--bg); color: var(--dark); }
+  header { background: var(--dark); color: white; padding: 14px 28px; display: flex; align-items: center; gap: 28px; position: sticky; top: 0; z-index: 5; }
+  header h1 { margin: 0; font-size: 20px; }
+  .tabs button { background: none; border: 0; color: #b7c0cc; font-size: 15px; padding: 8px 14px; cursor: pointer; border-bottom: 3px solid transparent; }
+  .tabs button.on { color: white; border-color: var(--blue); }
+  #run-pill { margin-left: auto; font-size: 13px; color: #b7c0cc; }
+  #server { font-size: 13px; padding: 4px 10px; border-radius: 12px; background: #2d333b; }
+  #server.on { color: #7ee787; } #server.off { color: #ff7b72; background: #3d1f20; }
+  main { padding: 12px 18px; width: 100%; }
+  .panel { background: white; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.06); margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 8px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  label.h { display: block; font-size: 12px; text-transform: uppercase; color: #4b5563; margin: 10px 0 5px; font-weight: 600; }
+  .choices { display: flex; gap: 8px; flex-wrap: wrap; }
+  .choices label { border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 14px; background: #fafbfc; }
+  .choices input { margin-right: 6px; }
+  .choices label:has(input:checked) { border-color: var(--blue); background: #eaf3ff; }
+  .choices label:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+  select { width: 100%; padding: 7px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; }
+  .buttons { display: flex; gap: 10px; margin-top: 16px; align-items: center; flex-wrap: wrap; }
+  button.main { background: var(--green); color: white; border: 0; border-radius: 8px; padding: 9px 22px; font-size: 15px; cursor: pointer; }
+  button.queue { background: white; color: var(--dark); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; font-size: 15px; cursor: pointer; }
+  button.stop { background: var(--red); color: white; border: 0; border-radius: 8px; padding: 9px 18px; font-size: 15px; cursor: pointer; }
+  button.debug { background: #6f42c1; color: white; border: 0; border-radius: 8px; padding: 9px 18px; font-size: 15px; cursor: pointer; }
+  button.debug:disabled { opacity: .45; cursor: default; }
+  button.small { background: white; border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 12px; }
+  button.small.del { color: var(--red); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .hint { color: var(--grey); font-size: 13px; font-weight: normal; }
+  .grid { display: grid; grid-template-columns: minmax(380px, 32%) 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  .log-panel { position: sticky; top: 72px; }
+  .status .big { font-size: 18px; font-weight: 700; }
+  .bar { height: 12px; background: #e9ecef; border-radius: 6px; overflow: hidden; margin: 10px 0; }
+  .bar div { height: 100%; background: var(--green); transition: width .3s; }
+  .counters span { display: inline-block; margin-right: 14px; font-weight: 600; }
+  .now { background: #eaf3ff; border-radius: 8px; padding: 8px 10px; margin-top: 8px; font-size: 13px; }
+  ul.list { margin: 0; padding-left: 0; list-style: none; font-size: 13px; }
+  ul.list li { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  ul.list li span.t { flex: 1; } ul.errs li span.t { color: var(--red); }
+  .checks { display: flex; gap: 8px; flex-wrap: wrap; }
+  .check { border-radius: 8px; padding: 6px 10px; font-size: 13px; background: #eef7ee; border: 1px solid #b6dfbe; }
+  .check.bad { background: #fff1f0; border-color: #f5b8b3; }
+  .check b { margin-right: 4px; }
+  .log-tools { display: flex; gap: 14px; align-items: center; font-size: 13px; margin-bottom: 6px; }
+  #log { background: #0d1117; color: #d7dde4; font-family: Consolas, monospace; font-size: 12px; height: 400px; min-height: 250px;
+         overflow-y: scroll; padding: 10px; border-radius: 8px; white-space: pre-wrap; scrollbar-width: auto; scrollbar-color: #6e7781 #161b22; }
+  #log::-webkit-scrollbar { width: 14px; } #log::-webkit-scrollbar-track { background: #161b22; border-radius: 8px; }
+  #log::-webkit-scrollbar-thumb { background: #6e7781; border-radius: 8px; border: 3px solid #161b22; } #log::-webkit-scrollbar-thumb:hover { background: #8b949e; }
+  #log .e { color: #ff7b72; } #log .ok { color: #7ee787; } #log .c { color: #79c0ff; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #eef1f4; font-size: 12px; text-transform: uppercase; color: #4b5563; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; color: white; font-size: 11px; text-transform: uppercase; }
+  .passed { background: var(--green); } .failed { background: var(--red); } .flaky { background: var(--yellow); } .none, .interrupted, .timedout, .skipped { background: var(--grey); }
+  .red { color: var(--red); font-weight: 600; } .green { color: var(--green); font-weight: 600; }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 2px; background: #d0d7de; }
+  .dot.passed { background: var(--green); } .dot.failed, .dot.timedOut, .dot.interrupted { background: var(--red); } .dot.flaky { background: var(--yellow); } .dot.skipped { background: #afb8c1; }
+  .compare h3 { font-size: 14px; margin: 14px 0 4px; }
+  .compare ul { margin: 0; font-size: 13px; }
+  .hidden { display: none !important; }
+  .missing td { background: #fff1f0; }
+  .pager { display: flex; align-items: center; gap: 8px; justify-content: flex-end; margin-top: 10px; font-size: 13px; flex-wrap: wrap; }
+  .pager select { padding: 2px 4px; }
+  .pager button[disabled] { opacity: .4; cursor: default; }
+  .nowrap { white-space: nowrap; }
+  #claude-out { font-size: 14px; line-height: 1.5; max-height: calc(100vh - 330px); overflow: auto; }
+  #claude-out .c-text { margin: 8px 0; white-space: pre-wrap; }
+  #claude-out .c-text pre { background: var(--code-bg, #f6f8fa); padding: 8px 10px; border-radius: 6px; overflow: auto; white-space: pre; }
+  #claude-out .c-tool { color: var(--grey); font-size: 12px; font-family: monospace; }
+  #claude-out .c-info { color: #0969da; font-size: 13px; margin: 6px 0; }
+  #claude-out .c-error { color: var(--red); font-size: 13px; white-space: pre-wrap; }
+  .sync-line { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin-bottom: 4px; }
+  #sync-changes { color: #0969da; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Circuly test runner</h1>
+  <div class="tabs">
+    <button data-tab="run" class="on">▶ Run tests</button>
+    <button data-tab="reports">📄 Reports</button>
+    <button data-tab="history">📈 History</button>
+    <button data-tab="claude">🤖 Claude</button>
+    <button data-tab="settings">⚙ Settings</button>
+  </div>
+  <div id="run-pill"></div>
+  <div id="server" class="off" title="Is the runner server (npm run runner) running?">● Server off</div>
+</header>
+
+<main>
+  <!-- ======================= RUN TAB ======================= -->
+  <div id="page-run">
+    <div class="panel">
+      <h2>Environment <button class="small" id="recheck">Check again</button> <span class="hint" id="check-hint">checking…</span></h2>
+      <div class="checks" id="checks"></div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="panel">
+          <h2>What to run</h2>
+          <div class="sync-line">
+            <span id="test-counts" class="hint">Counting the tests…</span>
+            <button class="small" id="sync-tests" title="read the test list of every suite again">⟳ Sync tests</button>
+          </div>
+          <div class="hint" id="sync-changes"></div>
+          <label class="h">1. Suite</label>
+          <div class="choices" id="suites"></div>
+
+          <label class="h">2. Scope</label>
+          <div class="choices">
+            <label><input type="radio" name="scope" value="all" checked>All tests</label>
+            <label><input type="radio" name="scope" value="file">One file</label>
+            <label><input type="radio" name="scope" value="test">One test</label>
+            <label><input type="radio" name="scope" value="failed">Failed last time</label>
+          </div>
+          <div id="pick-file" class="hidden">
+            <label class="h">Test file <button class="small" id="refresh-tests" title="read the test list again">↻</button></label>
+            <select id="file"></select>
+          </div>
+          <div id="pick-test" class="hidden">
+            <label class="h">Test</label>
+            <select id="test"></select>
+          </div>
+
+          <label class="h">3. Mode</label>
+          <div class="choices">
+            <label><input type="radio" name="mode" value="headed" checked>Headed (see the browser)</label>
+            <label><input type="radio" name="mode" value="headless">Headless</label>
+          </div>
+          <div class="hint" id="mode-hint"></div>
+
+          <div class="buttons">
+            <button class="main" id="run">▶ Run now</button>
+            <button class="queue" id="add-queue">+ Add to queue</button>
+            <button class="stop" id="stop" disabled>■ Stop</button>
+            <button class="debug" id="debug" title="Opens Chrome + the Playwright Inspector and pauses before the first step. Step over (F10) goes one step, Resume (F8) runs on. Best with One test.">🐞 Debug</button>
+          </div>
+          <div class="hint" id="command" style="margin-top:8px"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Queue <span class="hint">— runs one after another</span></h2>
+          <ul class="list" id="queue"></ul>
+          <div class="hint" id="queue-empty">Empty. Choose a run and press "+ Add to queue".</div>
+        </div>
+
+        <div class="panel status">
+          <h2>Status</h2>
+          <div class="big" id="status-text">Idle</div>
+          <div class="hint" id="status-what"></div>
+          <div class="bar"><div id="bar" style="width:0%"></div></div>
+          <div class="counters">
+            <span id="c-done">0 / 0</span>
+            <span class="green" id="c-passed">0 passed</span>
+            <span class="red" id="c-failed">0 failed</span>
+            <span style="color:var(--grey)" id="c-skipped">0 skipped</span>
+            <span class="hint" id="c-time"></span>
+          </div>
+          <div class="now hidden" id="now"></div>
+          <div id="after-run" class="hidden" style="margin-top:10px"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Failed tests <button class="small" id="rerun-all-failed" disabled>↻ Rerun all failed</button></h2>
+          <ul class="list errs" id="errors"></ul>
+          <div class="hint" id="no-errors">None.</div>
+        </div>
+      </div>
+
+      <div class="panel log-panel">
+        <h2>Log</h2>
+        <div class="log-tools">
+          <label><input type="checkbox" id="autoscroll" checked> Auto-scroll to the newest line</label>
+          <label><input type="checkbox" id="only-errors"> Only error lines</label>
+          <button class="small" id="to-top">↑ Top</button>
+          <button class="small" id="to-bottom">↓ Newest</button>
+          <button class="small" id="clear-log">Clear view</button>
+        </div>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= REPORTS TAB ======================= -->
+  <div id="page-reports" class="hidden">
+    <div class="panel">
+      <h2>Reports <span class="hint">— reports older than 3 days are deleted automatically</span></h2>
+      <div class="choices" id="report-filter" style="margin-bottom:12px"></div>
+      <div class="buttons" style="margin:0 0 10px">
+        <button class="small" id="compare" disabled>Compare the 2 ticked runs</button>
+        <span class="hint">Tick two runs of the same suite.</span>
+      </div>
+      <table>
+        <thead><tr><th></th><th>Created</th><th>Result</th><th>Report</th><th>Tests</th><th>Time</th><th>Open</th><th>Download</th><th></th></tr></thead>
+        <tbody id="reports"></tbody>
+      </table>
+      <div class="pager" id="reports-pager"></div>
+      <div class="hint" id="no-reports"></div>
+    </div>
+    <div class="panel compare hidden" id="compare-result"></div>
+  </div>
+
+  <!-- ======================= HISTORY TAB ======================= -->
+  <div id="page-history" class="hidden">
+    <div class="panel">
+      <h2>History <span class="hint">— runs of the last 3 days</span></h2>
+      <div class="choices" id="history-suites"></div>
+    </div>
+    <div class="panel">
+      <h2>Pass rate per run <span class="hint">(green = passed %, red = failed tests; newest left)</span></h2>
+      <div id="chart"></div>
+    </div>
+    <div class="panel">
+      <h2>Unstable tests <span class="hint">— failed at least once in the last 10 runs (a square = one run, newest left; newest failure first)</span></h2>
+      <table>
+        <thead><tr><th>Last failed</th><th>Test</th><th>Failed</th><th>Last 10 runs</th><th></th></tr></thead>
+        <tbody id="unstable"></tbody>
+      </table>
+      <div class="pager" id="unstable-pager"></div>
+      <div class="hint" id="no-unstable"></div>
+    </div>
+  </div>
+
+  <!-- ======================= CLAUDE TAB ======================= -->
+  <div id="page-claude" class="hidden">
+    <div class="panel">
+      <h2>Claude <span class="hint">— press "🤖 Ask Claude" next to a failed test (Run tab). Claude first only READS the code and the
+        failure and proposes a fix. "Apply fix" lets it change the files, then that test is rerun. "Undo" puts the old files back.</span></h2>
+      <div class="big" id="claude-status">Nothing asked yet.</div>
+      <div class="hint" id="claude-test"></div>
+      <div class="buttons">
+        <button class="main" id="claude-apply" disabled>✔ Apply fix</button>
+        <button class="queue" id="claude-undo" disabled>↶ Undo the change</button>
+        <button class="stop" id="claude-stop" disabled>■ Stop Claude</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Claude's answer</h2>
+      <div id="claude-out"></div>
+    </div>
+  </div>
+
+  <!-- ======================= SETTINGS TAB ======================= -->
+  <div id="page-settings" class="hidden">
+    <div class="panel">
+      <h2>.env settings <span class="hint">— read-only. Change them in the .env file, then restart the runner.</span></h2>
+      <table>
+        <thead><tr><th>Group</th><th>Variable</th><th>Value</th></tr></thead>
+        <tbody id="settings"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let suites = [];
+  let files = [];
+  let reportFilter = 'all';
+  let historySuite = null;
+  let lastState = null;
+
+  // ---------- tabs ----------
+  document.querySelectorAll('.tabs button').forEach((button) => (button.onclick = () => showTab(button.dataset.tab)));
+  function showTab(name) {
+    for (const tab of ['run', 'reports', 'history', 'claude', 'settings']) $(`page-${tab}`).classList.toggle('hidden', tab !== name);
+    document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
+    if (name === 'reports') loadReports();
+    if (name === 'history') loadHistory();
+    if (name === 'settings') loadSettings();
+  }
+
+  // ---------- environment check ----------
+  $('recheck').onclick = loadChecks;
+  async function loadChecks() {
+    $('check-hint').textContent = 'checking…';
+    const checks = await (await fetch('/api/check')).json();
+    $('checks').innerHTML = checks.map((c) => `<div class="check ${c.ok ? '' : 'bad'}"><b>${c.ok ? '✓' : '✗'} ${c.name}</b>${escapeHtml(c.detail)}</div>`).join('');
+    const bad = checks.filter((c) => !c.ok).length;
+    $('check-hint').textContent = `${bad ? `${bad} problem(s) — tests that need these will fail` : 'all good'} · checked ${shortDate(Date.now())}`;
+    $('check-hint').style.color = bad ? 'var(--red)' : 'var(--green)';
+    fitLog();
+  }
+
+  // ---------- 1. suites ----------
+  async function loadSuites() {
+    suites = await (await fetch('/api/suites')).json();
+    $('suites').innerHTML = suites.map((s, i) => `<label><input type="radio" name="suite" value="${s.id}" ${i === 0 ? 'checked' : ''}>${s.name} <span class="hint" id="count-${s.id}"></span></label>`).join('');
+    document.querySelectorAll('input[name=suite]').forEach((r) => (r.onchange = suiteChanged));
+    suiteChanged();
+  }
+  const chosenSuite = () => suites.find((s) => s.id === document.querySelector('input[name=suite]:checked')?.value);
+  function suiteChanged() {
+    const suite = chosenSuite();
+    document.querySelectorAll('input[name=mode]').forEach((r) => (r.disabled = !suite.browser));
+    $('mode-hint').textContent = suite.browser ? '' : 'API suite: no browser is used, so the mode does not matter (and 🐞 Debug is not available).';
+    $('debug').disabled = !suite.browser || Boolean(lastState && lastState.running);
+    loadTests(false);
+  }
+
+  // ---------- test count sync (the server watches tests/ and sends "tests-changed") ----------
+  /** Counts per suite + total + when; after a change also what was added / deleted / changed. */
+  function showCounts(c, fromChange) {
+    if (!c) return;
+    for (const s of suites) {
+      const n = c.suites[s.id];
+      if ($(`count-${s.id}`)) $(`count-${s.id}`).textContent = n ? `(${n.tests})` : '';
+    }
+    $('test-counts').textContent = `${c.total} tests in ${suites.length} suites · synced ${shortDate(c.at)}`;
+    const parts = [];
+    if (c.added.length) parts.push(`+${c.added.length} added`);
+    if (c.removed.length) parts.push(`−${c.removed.length} deleted`);
+    if (c.changedFiles.length) parts.push(`${c.changedFiles.length} file(s) changed`);
+    const list = [...c.added.map((t) => `+ ${t}`), ...c.removed.map((t) => `− ${t}`)].slice(0, 8);
+    $('sync-changes').innerHTML = fromChange && parts.length
+      ? `Test list updated: ${parts.join(', ')}${list.length ? `<br>${list.map(escapeHtml).join('<br>')}` : ''}`
+      : '';
+    if (fromChange) loadTests(false); // the chosen suite's file + test lists (the server cache is fresh)
+  }
+  $('sync-tests').onclick = async () => {
+    $('test-counts').textContent = 'Syncing… (reads every suite, a few seconds)';
+    const res = await fetch('/api/sync', { method: 'POST' });
+    if (!res.ok) alert((await res.json()).error); // the new counts arrive as a "tests-changed" event
+  };
+
+  // ---------- 2. scope ----------
+  document.querySelectorAll('input[name=scope]').forEach((r) => (r.onchange = scopeChanged));
+  function scopeChanged() {
+    const scope = document.querySelector('input[name=scope]:checked').value;
+    $('pick-file').classList.toggle('hidden', scope !== 'file' && scope !== 'test');
+    $('pick-test').classList.toggle('hidden', scope !== 'test');
+  }
+  $('refresh-tests').onclick = () => loadTests(true);
+  async function loadTests(refresh) {
+    if (!chosenSuite()) return; // a "tests-changed" event can arrive before the suites are loaded
+    $('file').innerHTML = '<option>Loading the test list…</option>';
+    $('test').innerHTML = '';
+    const res = await fetch(`/api/tests?project=${chosenSuite().id}${refresh ? '&refresh=1' : ''}`);
+    files = res.ok ? await res.json() : [];
+    $('file').innerHTML = files.map((f, i) => `<option value="${i}">${f.file}  (${f.tests.length} tests)</option>`).join('');
+    fileChanged();
+  }
+  $('file').onchange = fileChanged;
+  function fileChanged() {
+    const file = files[$('file').value];
+    $('test').innerHTML = file ? file.tests.map((t) => `<option value="${t.line}">${escapeHtml(t.title)}  (line ${t.line})</option>`).join('') : '';
+  }
+
+  // ---------- run / queue / stop ----------
+  function currentChoice() {
+    const file = files[$('file').value];
+    return {
+      project: chosenSuite().id,
+      scope: document.querySelector('input[name=scope]:checked').value,
+      file: file ? file.file : '',
+      line: $('test').value,
+      headed: chosenHeaded(),
+    };
+  }
+  async function post(path, body) {
+    askForNotifications();
+    const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+    if (!res.ok) alert((await res.json()).error);
+  }
+  $('run').onclick = () => post('/api/run', currentChoice());
+  // 🐞 Debug: Chrome + Playwright Inspector, paused before the first step (Step over = F10, Resume = F8).
+  // The run waits for you (no timeout); close the Inspector or press Stop to end it.
+  $('debug').onclick = () => {
+    const choice = { ...currentChoice(), debug: true };
+    if (choice.scope !== 'test' && !confirm('Debug pauses before EVERY test of this choice. For step-by-step checking choose "One test". Debug anyway?')) return;
+    post('/api/run', choice);
+  };
+  $('add-queue').onclick = () => post('/api/queue', currentChoice());
+  $('stop').onclick = async () => {
+    if (confirm('Stop the run and clear the queue? Running tests do not finish their undo steps (all hub crons are switched back on).')) await post('/api/stop');
+  };
+
+  /** Headed or headless as chosen under "3. Mode" (reruns use it too, not the mode of the last run). */
+  function chosenHeaded() {
+    return document.querySelector('input[name=mode]:checked').value === 'headed';
+  }
+
+  /** Rerun one failed test: now if idle, otherwise it goes to the queue. */
+  function rerun(error) {
+    const choice = { project: lastState.project, scope: 'test', file: error.file, line: error.line, headed: chosenHeaded() };
+    post(lastState.running ? '/api/queue' : '/api/run', choice);
+  }
+  $('rerun-all-failed').onclick = () => {
+    const choice = { project: lastState.project, scope: 'failed', headed: chosenHeaded() };
+    post(lastState.running ? '/api/queue' : '/api/run', choice);
+  };
+
+  // ---------- desktop notification when a run ends ----------
+  function askForNotifications() {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  }
+  function notifyEnd(s) {
+    const title = s.stopped ? 'Test run stopped' : s.failed ? `✗ ${s.failed} test(s) failed` : '✓ All tests passed';
+    const body = `${s.project}: ${s.what} — ${s.passed} passed, ${s.failed} failed, ${s.skipped} skipped`;
+    document.title = `${s.failed ? '✗' : '✓'} Circuly test runner`;
+    if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body });
+  }
+
+  // ---------- live status ----------
+  let timer = null;
+  function showState(s) {
+    lastState = s;
+    const running = s && s.running;
+    $('run').disabled = running;
+    const suiteRadio = document.querySelector('input[name=suite]:checked'); // not there yet while the page starts
+    $('debug').disabled = running || !suiteRadio || !(suites.find((x) => x.id === suiteRadio.value) || {}).browser;
+    $('stop').disabled = !running && !(s.queue || []).length;
+    $('run-pill').textContent = running ? `● running: ${s.project} (${s.done}/${s.total || '?'})` : '';
+
+    // queue
+    const waiting = s.queue || [];
+    // newest first; "#1" = the run that starts next
+    $('queue').innerHTML = waiting.map((item, i) => ({ item, position: i + 1 })).reverse()
+      .map(({ item, position }) => `<li><span class="t">#${position} ${escapeHtml(item.description)} <span class="hint">added ${shortDate(item.at)}</span></span><button class="small del" data-id="${item.id}">remove</button></li>`).join('');
+    $('queue-empty').classList.toggle('hidden', waiting.length > 0);
+    document.querySelectorAll('#queue button').forEach((b) => (b.onclick = () => fetch(`/api/queue?id=${b.dataset.id}`, { method: 'DELETE' })));
+
+    if (!s.project) return;
+    const suite = suites.find((x) => x.id === s.project);
+    $('status-text').textContent = running ? `Running — ${suite ? suite.name : s.project}` : s.stopped ? 'Stopped' : s.failed ? `Finished — ${s.failed} failed` : 'Finished — all passed';
+    $('status-text').style.color = running ? '' : s.failed || s.stopped ? 'var(--red)' : 'var(--green)';
+    $('status-what').textContent = `${s.what} · ${s.debug ? '🐞 debug (step in the Playwright Inspector window)' : s.headed ? 'headed' : 'headless'}`;
+    $('command').textContent = s.command ? `Last run: ${s.command}` : '';
+    $('c-done').textContent = `${s.done} / ${s.total || '?'}`;
+    $('c-passed').textContent = `${s.passed} passed`;
+    $('c-failed').textContent = `${s.failed} failed`;
+    $('c-skipped').textContent = `${s.skipped} skipped`;
+    $('bar').style.width = s.total ? `${Math.round((s.done / s.total) * 100)}%` : '0%';
+    $('bar').style.background = s.failed ? 'var(--red)' : 'var(--green)';
+    $('now').classList.toggle('hidden', !running || !s.current);
+    $('now').innerHTML = `▶ Now running: <b>${escapeHtml(s.current || '')}</b>`;
+
+    // failed tests, each with Rerun
+    const errors = [...(s.errors || [])].reverse(); // newest failure first
+    $('errors').innerHTML = errors.map((e, i) => `<li><span class="t">${escapeHtml(e.title)} <span class="hint">${escapeHtml(e.file)}:${e.line} · failed ${shortDate(e.at)}</span></span><button class="small" data-i="${i}">↻ Rerun</button> <button class="small ask" data-i="${i}">🤖 Ask Claude</button></li>`).join('');
+    document.querySelectorAll('#errors button:not(.ask)').forEach((b) => (b.onclick = () => rerun(errors[b.dataset.i])));
+    document.querySelectorAll('#errors button.ask').forEach((b) => (b.onclick = () => askClaude(lastState.project, errors[b.dataset.i])));
+    $('no-errors').classList.toggle('hidden', errors.length > 0);
+    $('rerun-all-failed').disabled = errors.length === 0 || running;
+
+    clearInterval(timer);
+    const tick = () => ($('c-time').textContent = formatTime((running ? Date.now() : s.endedAt || Date.now()) - s.startedAt));
+    tick();
+    if (running) timer = setInterval(tick, 1000);
+    $('after-run').classList.toggle('hidden', running);
+    if (!running) showLatestReportLink(s.project);
+  }
+
+  async function showLatestReportLink(project) {
+    const runs = (await (await fetch('/api/reports')).json()).filter((r) => r.suite === project);
+    if (!runs.length) return;
+    const r = runs[0];
+    $('after-run').innerHTML = `Report: <a href="/reports/${r.suite}/${r.run}/index.html" target="_blank">${r.name}</a> ·
+      <a href="/api/pdf?suite=${r.suite}&run=${r.run}">PDF</a> · <a href="/api/download?suite=${r.suite}&run=${r.run}">.zip</a>`;
+  }
+
+  // ---------- log: newest at the bottom, auto-scroll ----------
+  function addLogLine(text) {
+    const line = document.createElement('div');
+    const isError = /✘|✗|Error|error:|  failed|Timeout|FAIL/.test(text) && !/ 0 failed/.test(text);
+    line.className = isError ? 'e' : /✓|passed|PASS/.test(text) ? 'ok' : text.startsWith('$') ? 'c' : '';
+    line.textContent = text;
+    if ($('only-errors').checked && !isError) line.style.display = 'none';
+    $('log').appendChild(line);
+    if ($('autoscroll').checked) $('log').scrollTop = $('log').scrollHeight;
+  }
+  $('log').addEventListener('scroll', () => {
+    const atBottom = $('log').scrollHeight - $('log').scrollTop - $('log').clientHeight < 30;
+    $('autoscroll').checked = atBottom; // scrolling up pauses, back at the bottom turns it on again
+  });
+  $('autoscroll').onchange = () => { if ($('autoscroll').checked) $('log').scrollTop = $('log').scrollHeight; };
+  $('only-errors').onchange = () => {
+    for (const line of $('log').children) line.style.display = $('only-errors').checked && line.className !== 'e' ? 'none' : '';
+  };
+  $('clear-log').onclick = () => ($('log').innerHTML = '');
+  $('to-top').onclick = () => { $('autoscroll').checked = false; $('log').scrollTop = 0; };
+  $('to-bottom').onclick = () => { $('autoscroll').checked = true; $('log').scrollTop = $('log').scrollHeight; };
+
+  function serverStatus(on) {
+    $('server').className = on ? 'on' : 'off';
+    $('server').textContent = on ? '● Server on' : '● Server off — start it with: npm run runner';
+  }
+
+  function connect() {
+    const events = new EventSource('/api/events');
+    events.onopen = () => serverStatus(true);
+    events.onerror = () => serverStatus(false); // EventSource tries again every few seconds
+    events.onmessage = (message) => {
+      const event = JSON.parse(message.data);
+      serverStatus(true);
+      if (event.type === 'hello') loadChecks();
+      if (event.type === 'start') { $('log').innerHTML = ''; document.title = '● Circuly test runner'; }
+      if (event.type === 'log') addLogLine(event.text);
+      if (event.type === 'tests-changed') showCounts(event.counts, true);
+      if (event.type === 'claude') { addClaudeLine(event); showClaudeState(event.state); }
+      if (event.state) showState(event.state);
+      if (event.type === 'end') { notifyEnd(event.state); loadReports(); }
+    };
+  }
+
+  // ---------- pagination for the Reports and Unstable-tests tables (10 rows per page by default) ----------
+  const pages = { reports: { page: 1, size: 10 }, unstable: { page: 1, size: 10 } };
+
+  /** The rows of the current page of a list (name = 'reports' or 'unstable'). */
+  function pageOf(name, rows) {
+    const p = pages[name];
+    const count = Math.max(1, Math.ceil(rows.length / p.size));
+    if (p.page > count) p.page = count; // e.g. after a delete on the last page
+    return rows.slice((p.page - 1) * p.size, p.page * p.size);
+  }
+
+  /** Draws "1–10 of 23 · Rows per page [10] · « ‹ Page 1 of 3 › »" under a table; redraw() shows the new page. */
+  function drawPager(name, total, redraw) {
+    const p = pages[name];
+    const count = Math.max(1, Math.ceil(total / p.size));
+    if (!total) { $(name + '-pager').innerHTML = ''; return; }
+    const from = (p.page - 1) * p.size + 1;
+    const to = Math.min(total, p.page * p.size);
+    $(name + '-pager').innerHTML = `<span>${from}–${to} of ${total}</span>
+      <span>· Rows per page <select>${[10, 25, 50].map((n) => `<option ${n === p.size ? 'selected' : ''}>${n}</option>`).join('')}</select></span>
+      <button class="small" data-go="first" ${p.page === 1 ? 'disabled' : ''}>«</button>
+      <button class="small" data-go="prev" ${p.page === 1 ? 'disabled' : ''}>‹</button>
+      <span>Page ${p.page} of ${count}</span>
+      <button class="small" data-go="next" ${p.page === count ? 'disabled' : ''}>›</button>
+      <button class="small" data-go="last" ${p.page === count ? 'disabled' : ''}>»</button>`;
+    $(name + '-pager').querySelector('select').onchange = (e) => { p.size = Number(e.target.value); p.page = 1; redraw(); };
+    $(name + '-pager').querySelectorAll('button').forEach((b) => (b.onclick = () => {
+      p.page = { first: 1, prev: p.page - 1, next: p.page + 1, last: count }[b.dataset.go];
+      redraw();
+    }));
+  }
+
+  // ---------- reports tab (+ compare) ----------
+  async function loadReports() {
+    const runs = await (await fetch('/api/reports')).json();
+    const suiteIds = [...new Set(runs.map((r) => r.suite))];
+    $('report-filter').innerHTML = ['all', ...suiteIds]
+      .map((id) => `<label><input type="radio" name="rf" value="${id}" ${id === reportFilter ? 'checked' : ''}>${id === 'all' ? 'All suites' : id}</label>`)
+      .join('');
+    document.querySelectorAll('input[name=rf]').forEach((r) => (r.onchange = () => { reportFilter = r.value; pages.reports.page = 1; loadReports(); }));
+    const shown = runs.filter((r) => reportFilter === 'all' || r.suite === reportFilter);
+    $('no-reports').textContent = shown.length ? '' : 'No reports yet.';
+    const pageRows = pageOf('reports', shown);
+    drawPager('reports', shown.length, loadReports);
+    $('reports').innerHTML = pageRows.map((r) => {
+      const s = r.summary || {};
+      const result = s.failed ? 'failed' : s.flaky ? 'flaky' : s.status ? 'passed' : 'none';
+      return `<tr>
+        <td><input type="checkbox" class="pick" data-suite="${r.suite}" data-run="${r.run}"></td>
+        <td class="nowrap">${shortDate(r.run)}</td>
+        <td><span class="badge ${result}">${s.status || 'no summary'}</span></td>
+        <td><b>${r.name}</b></td>
+        <td>${s.tests ?? '?'} tests · ${s.passed ?? 0} passed · <span class="${s.failed ? 'red' : ''}">${s.failed ?? 0} failed</span> · ${s.skipped ?? 0} skipped</td>
+        <td>${s.seconds != null ? formatTime(s.seconds * 1000) : ''}</td>
+        <td><a href="/reports/${r.suite}/${r.run}/index.html" target="_blank">Summary + errors</a>
+            ${r.hasHtml ? ` · <a href="/reports/${r.suite}/${r.run}/html-report/index.html" target="_blank">Playwright report (trace)</a>` : ''}</td>
+        <td><a href="/api/pdf?suite=${r.suite}&run=${r.run}">PDF</a> · <a href="/api/download?suite=${r.suite}&run=${r.run}">.zip</a></td>
+        <td><button class="small del" data-suite="${r.suite}" data-run="${r.run}" data-name="${r.name}">Delete</button></td>
+      </tr>`;
+    }).join('');
+    document.querySelectorAll('#reports button.del').forEach((b) => {
+      b.onclick = async () => {
+        if (!confirm(`Delete report ${b.dataset.name}? This cannot be undone.`)) return;
+        const res = await fetch(`/api/reports?suite=${b.dataset.suite}&run=${b.dataset.run}`, { method: 'DELETE' });
+        if (!res.ok) alert((await res.json()).error);
+        loadReports();
+      };
+    });
+    document.querySelectorAll('input.pick').forEach((box) => (box.onchange = pickedChanged));
+    pickedChanged();
+  }
+  function picked() {
+    return [...document.querySelectorAll('input.pick:checked')].map((b) => ({ suite: b.dataset.suite, run: b.dataset.run }));
+  }
+  function pickedChanged() {
+    const p = picked();
+    $('compare').disabled = !(p.length === 2 && p[0].suite === p[1].suite);
+  }
+  $('compare').onclick = async () => {
+    const [x, y] = picked().sort((a, b) => (a.run < b.run ? -1 : 1)); // older first
+    const res = await fetch(`/api/compare?suite=${x.suite}&a=${x.run}&b=${y.run}`);
+    const data = await res.json();
+    const box = $('compare-result');
+    box.classList.remove('hidden');
+    if (!res.ok) { box.innerHTML = `<h2>Compare</h2><p class="red">${escapeHtml(data.error)}</p>`; return; }
+    const list = (tests) => tests.length ? `<ul>${tests.map((t) => `<li>${escapeHtml(t.title)} <span class="hint">${escapeHtml(t.file)}</span></li>`).join('')}</ul>` : '<div class="hint">none</div>';
+    box.innerHTML = `<h2>Compare ${x.suite}: ${x.run} → ${y.run}</h2>
+      <h3 class="red">Newly failing (${data.newlyFailing.length})</h3>${list(data.newlyFailing)}
+      <h3 class="green">Fixed (${data.fixed.length})</h3>${list(data.fixed)}
+      <h3>Still failing (${data.stillFailing.length})</h3>${list(data.stillFailing)}
+      <h3>Only in the newer run (${data.onlyInNewer.length})</h3>${list(data.onlyInNewer)}
+      <h3>Only in the older run (${data.onlyInOlder.length})</h3>${list(data.onlyInOlder)}`;
+    box.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // ---------- history tab: trend chart + unstable tests ----------
+  async function loadHistory() {
+    if (!historySuite) historySuite = suites[0].id;
+    $('history-suites').innerHTML = suites.map((s) => `<label><input type="radio" name="hs" value="${s.id}" ${s.id === historySuite ? 'checked' : ''}>${s.name}</label>`).join('');
+    document.querySelectorAll('input[name=hs]').forEach((r) => (r.onchange = () => { historySuite = r.value; pages.unstable.page = 1; loadHistory(); }));
+    const runs = await (await fetch(`/api/history?suite=${historySuite}`)).json();
+    // runs come oldest first → newest first for the chart and the squares
+    drawChart(runs.slice(-30).reverse());
+    showUnstable(runs.slice(-10).reverse());
+  }
+
+  function drawChart(runs) {
+    if (!runs.length) { $('chart').innerHTML = '<div class="hint">No runs yet for this suite.</div>'; return; }
+    const w = 34, h = 160, pad = 24;
+    let bars = '';
+    runs.forEach((r, i) => {
+      const ran = r.tests - r.skipped;
+      const rate = ran ? Math.round(((r.passed + r.flaky) / ran) * 100) : 0;
+      const x = pad + i * w;
+      const barH = (rate / 100) * h;
+      bars += `<g><title>${shortDate(r.run)}\n${rate}% passed · ${r.failed} failed · ${r.tests} tests</title>
+        <rect x="${x}" y="${pad + h - barH}" width="${w - 8}" height="${barH}" fill="${r.failed ? '#e5534b' : '#2da44e'}" rx="3"></rect>
+        <text x="${x + (w - 8) / 2}" y="${pad + h - barH - 4}" font-size="10" text-anchor="middle">${rate}%</text>
+        <text x="${x + (w - 8) / 2}" y="${pad + h + 14}" font-size="9" text-anchor="middle" fill="#6e7781">${r.run.slice(5, 10)}</text></g>`;
+    });
+    const width = pad * 2 + runs.length * w;
+    $('chart').innerHTML = `<svg width="${width}" height="${h + pad * 2 + 10}" style="max-width:100%">
+      <line x1="${pad - 4}" y1="${pad + h}" x2="${width - pad}" y2="${pad + h}" stroke="#d0d7de"></line>${bars}</svg>`;
+  }
+
+  function showUnstable(runs) {
+    const tests = new Map(); // file:line → { title, statuses per run }
+    runs.forEach((r, i) => {
+      for (const [id, status] of Object.entries(r.statusOf || {})) {
+        if (!tests.has(id)) tests.set(id, { title: (r.titleOf || {})[id] || id, statuses: new Array(runs.length).fill(null) });
+        tests.get(id).statuses[i] = status;
+      }
+    });
+    const unstable = [...tests.entries()]
+      .map(([id, t]) => ({ id, ...t, fails: t.statuses.filter((s) => s === 'failed').length, lastFailed: t.statuses.indexOf('failed') }))
+      .filter((t) => t.fails > 0)
+      .sort((a, b) => a.lastFailed - b.lastFailed || b.fails - a.fails); // runs are newest first → smallest index = newest failure
+    $('no-unstable').textContent = unstable.length ? '' : runs.length ? 'No test failed in these runs.' : 'No runs yet.';
+    const pageRows = pageOf('unstable', unstable);
+    drawPager('unstable', unstable.length, () => showUnstable(runs));
+    $('unstable').innerHTML = pageRows.map((t, i) => `<tr>
+      <td class="nowrap">${shortDate(runs[t.lastFailed].run)}</td>
+      <td>${escapeHtml(t.title)}<div class="hint">${escapeHtml(t.id)}</div></td>
+      <td class="red">${t.fails} of ${t.statuses.filter(Boolean).length}</td>
+      <td>${t.statuses.map((s) => `<span class="dot ${s || ''}" title="${s || 'not run'}"></span>`).join('')}</td>
+      <td class="nowrap"><button class="small" data-i="${i}">↻ Run this test</button> <button class="small ask" data-i="${i}">🤖 Ask Claude</button></td></tr>`).join('');
+    document.querySelectorAll('#unstable button.ask').forEach((b) => (b.onclick = () => {
+      const t = pageRows[b.dataset.i];
+      const at = t.id.lastIndexOf(':');
+      askClaude(historySuite, { file: t.id.slice(0, at), line: t.id.slice(at + 1), run: runs[t.lastFailed].run });
+    }));
+    document.querySelectorAll('#unstable button:not(.ask)').forEach((b) => (b.onclick = () => {
+      const t = pageRows[b.dataset.i];
+      const at = t.id.lastIndexOf(':');
+      const choice = { project: historySuite, scope: 'test', file: t.id.slice(0, at), line: t.id.slice(at + 1), headed: chosenHeaded() };
+      post(lastState && lastState.running ? '/api/queue' : '/api/run', choice).then(() => showTab('run'));
+    }));
+  }
+
+  // ---------- settings tab ----------
+  async function loadSettings() {
+    const rows = await (await fetch('/api/settings')).json();
+    $('settings').innerHTML = rows.map((r) => `<tr class="${r.set ? '' : 'missing'}">
+      <td>${escapeHtml(r.group)}</td><td><code>${r.name}</code></td>
+      <td>${r.set ? escapeHtml(r.value) : '<span class="red">missing</span>'}</td></tr>`).join('');
+  }
+
+  // ---------- Claude tab (runner/claude.js on the server) ----------
+  /** "🤖 Ask Claude" → Claude reads the failure + code and proposes a fix (nothing is changed yet). */
+  async function askClaude(project, error) {
+    $('claude-out').innerHTML = '';
+    showTab('claude');
+    const res = await fetch('/api/claude/suggest', { method: 'POST', body: JSON.stringify({ project, file: error.file, line: error.line, run: error.run }) });
+    if (!res.ok) alert((await res.json()).error);
+  }
+  async function claudeAction(path, question, body) {
+    if (question && !confirm(question)) return;
+    const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+    if (!res.ok) alert((await res.json()).error);
+  }
+  $('claude-apply').onclick = () => claudeAction('/api/claude/apply',
+    `Let Claude change the files as proposed? That test is rerun afterwards (${chosenHeaded() ? 'headed' : 'headless'}, as chosen under "3. Mode").`,
+    { headed: chosenHeaded() });
+  $('claude-undo').onclick = () => claudeAction('/api/claude/undo', 'Put the old versions of the changed files back?');
+  $('claude-stop').onclick = () => claudeAction('/api/claude/stop');
+
+  /** Claude's markdown → simple HTML: code blocks, **bold**, `code`. */
+  function claudeText(text) {
+    return escapeHtml(text)
+      .replace(/```[a-z]*\n?([\s\S]*?)```/g, '<pre>$1</pre>')
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  }
+  function addClaudeLine(line) {
+    const div = document.createElement('div');
+    div.className = `c-${line.kind}`;
+    if (line.kind === 'text') div.innerHTML = claudeText(line.text);
+    else div.textContent = line.kind === 'tool' ? `🔎 ${line.text}` : line.text;
+    $('claude-out').appendChild(div);
+    $('claude-out').scrollTop = $('claude-out').scrollHeight;
+  }
+  function showClaudeState(c) {
+    $('claude-apply').disabled = !c || c.running || !c.canApply;
+    $('claude-undo').disabled = !c || c.running || !c.canUndo;
+    $('claude-stop').disabled = !c || !c.running;
+    if (!c) return;
+    $('claude-status').textContent = c.running ? (c.mode === 'apply' ? 'Claude is applying the fix…' : 'Claude is looking at the failure…') : c.mode === 'apply' ? 'Fix applied' : 'Proposal ready';
+    $('claude-test').textContent = `${c.test.title} · ${c.test.file}:${c.test.line} · asked ${shortDate(c.startedAt)}`;
+  }
+  async function loadClaude() {
+    const data = await (await fetch('/api/claude')).json();
+    $('claude-out').innerHTML = '';
+    data.lines.forEach(addClaudeLine);
+    showClaudeState(data.state);
+  }
+
+  // ---------- helpers ----------
+  function escapeHtml(text) {
+    return String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  /** Short date + time, e.g. "29 Sep 10:45". when = ms, a Date, or a run name like 2026-09-29_10-45-02. */
+  function shortDate(when) {
+    let date = when instanceof Date ? when : new Date(when);
+    if (typeof when === 'string') date = new Date(when.replace(/^(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})-(\d{2})$/, '$1T$2:$3:$4'));
+    if (!Number.isFinite(date.getTime())) return '';
+    return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+  }
+  function formatTime(ms) {
+    const s = Math.round(ms / 1000);
+    return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+  }
+
+  // ---------- start ----------
+  // Log height: from where the log starts down to the bottom of the window (no page scrolling needed).
+  function fitLog() {
+    const top = $('log').getBoundingClientRect().top + window.scrollY;
+    $('log').style.height = `${Math.max(250, window.innerHeight - top - 36)}px`;
+  }
+  window.addEventListener('resize', fitLog);
+  fitLog();
+
+  // Load the suites + the current run. If the server is off, try again every 3 seconds.
+  async function startPage() {
+    try {
+      scopeChanged(); // after a reload the browser may bring back the last scope choice → show its file/test pickers
+      await loadSuites();
+      const { state, log } = await (await fetch('/api/state')).json(); // a run may already be going
+      $('log').innerHTML = '';
+      for (const line of log) addLogLine(line);
+      showState(state);
+      await loadClaude(); // Claude's last answer (also after a page reload)
+      showCounts(await (await fetch('/api/counts')).json(), false);
+    } catch {
+      serverStatus(false);
+      setTimeout(startPage, 3000);
+    }
+  }
+  connect();
+  startPage();
+</script>
+</body>
+</html>

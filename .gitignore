@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Test reports: reports/<suite>/<run>/ (see playwright.config.ts)
+/reports/
+# old report folders (before 2026-09-28)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+.auth/
+
+# Summary report (src/reporters/summary-reporter.ts)
+/test-summary/

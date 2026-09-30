@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "test-runner",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["runner/server.js", "--no-open"],
+      "port": 4455
+    }
+  ]
+}
