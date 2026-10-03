@@ -1,16 +1,9 @@
-// test, expect        ← src/fixtures/index.ts
-// create/update...Payload ← src/data/payloads/customer-api/products.ts
-// find...             ← src/db/queries/hub/products.ts
 import { test, expect } from '@fixtures';
 import { createProductPayload, createVariantPayload, updateVariantStockPayload } from '@data/payloads/customer-api/products';
 import { findLatestActiveVariant, findNewestVariant, findProduct, findVariant } from '@db/queries/hub/products';
 
-/**
- * WHAT:   OLD Customer API — /products, /variants.
- * FROM:   cus-api cypress/e2e/customer-api/11-product/product-variants.cy.js (7 tests).
- * CHANGES DATA: yes — creates a product, creates a variant, changes a variant's stock.
- * (The Unified API suite only has the 4 read tests.)
- */
+// Customer API - /products and /variants.
+// Changes data: creates a product and a variant, changes the stock of a variant.
 test.describe('Customer API - products and variants', () => {
   test('returns a list of products', async ({ customerApi }) => {
     // ACTION: GET /products
@@ -33,7 +26,7 @@ test.describe('Customer API - products and variants', () => {
   });
 
   test('returns the variants of a product', async ({ customerApi, db }) => {
-    // SETUP: newest active variant → product_id ← hub db
+    // SETUP: newest active variant
     const variant = await findLatestActiveVariant(db.hub, customerApi.companyId);
 
     // ACTION: GET /products/{product_id}/variants
@@ -45,10 +38,10 @@ test.describe('Customer API - products and variants', () => {
   });
 
   test('creates a product', async ({ customerApi, db }) => {
-    // ACTION: POST /products — unique sku/title (timestamp + qa_auto_ prefix)
+    // ACTION: new product with a unique sku and a qa_auto_ title
     const response = await customerApi.products.create(createProductPayload());
 
-    // CHECK: new `id` ← API response exists in the products table
+    // CHECK: the new product is in the database
     expect([200, 201]).toContain(response.status());
     const { id } = await response.json();
     expect(id).toBeTruthy();
@@ -56,13 +49,13 @@ test.describe('Customer API - products and variants', () => {
   });
 
   test('creates a variant for the newest product', async ({ customerApi, db }) => {
-    // SETUP: product of the most recently created variant (any status) ← hub db
+    // SETUP: product of the newest variant (any status)
     const { product_id } = await findNewestVariant(db.hub, customerApi.companyId);
 
-    // ACTION: POST /products/{product_id}/variants — monthly 12-month subscription variant
+    // ACTION: POST /products/{product_id}/variants - monthly 12-month subscription variant
     const response = await customerApi.products.createVariant(product_id, createVariantPayload());
 
-    // CHECK: new variant `id` ← API response exists in product_variants
+    // CHECK: the new variant is in the database
     expect([200, 201]).toContain(response.status());
     const { id } = await response.json();
     expect(id).toBeTruthy();
@@ -70,14 +63,14 @@ test.describe('Customer API - products and variants', () => {
   });
 
   test('updates the stock of the newest variant', async ({ customerApi, db }) => {
-    // SETUP: newest variant; payload has a random stock 1..100 (← payload.stock)
+    // SETUP: newest variant; the body has a random stock of 1-100
     const variant = await findNewestVariant(db.hub, customerApi.companyId);
     const payload = updateVariantStockPayload();
 
     // ACTION: PUT /variants/{id}
     const response = await customerApi.products.updateVariant(variant.id, payload);
 
-    // CHECK: the database stock equals the value we sent
+    // CHECK: the database has the stock we sent
     expect([200, 201]).toContain(response.status());
     expect(Number((await findVariant(db.hub, customerApi.companyId, variant.id))?.stock)).toBe(payload.stock);
   });

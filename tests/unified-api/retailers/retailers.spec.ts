@@ -1,15 +1,10 @@
-// test, expect                 ← src/fixtures/index.ts
-// create/updateRetailerPayload ← src/data/payloads/shared/retailers.ts (same for both APIs)
-// find...Retailer...           ← src/db/queries/hub/retailers.ts
 import { test, expect } from '@fixtures';
 import { createRetailerPayload, updateRetailerPayload } from '@data/payloads/shared/retailers';
 import { findLatestRetailer, findRetailer, findRetailerByLocation } from '@db/queries/hub/retailers';
 
-/**
- * WHAT:   Unified Customer API — /retailers.
- * FROM:   unified-customer-api cypress/e2e/customer-api/12-retailers/retailers.cy.js (4 tests → 3).
- * NEEDS:  at least one retailer.   CHANGES DATA: yes — creates and updates a retailer.
- */
+// Unified API - /retailers.
+// Needs: at least one retailer.
+// Changes data: creates and updates a retailer.
 test.describe('Unified API - retailers', () => {
   test('returns a list of retailers', async ({ unifiedApi }) => {
     // ACTION: GET /retailers
@@ -21,7 +16,7 @@ test.describe('Unified API - retailers', () => {
   });
 
   test('fetches a retailer by location id', async ({ unifiedApi, db }) => {
-    // SETUP: newest retailer ← hub db
+    // SETUP: newest retailer
     const companyId = await unifiedApi.companyId();
     const retailer = await findLatestRetailer(db.hub, companyId);
 
@@ -34,17 +29,16 @@ test.describe('Unified API - retailers', () => {
     expect(await findRetailerByLocation(db.hub, companyId, retailer.location_id)).toBeDefined();
   });
 
-  // Was tests 3-4 in Cypress, which passed the new id between tests through Cypress.env.
   test('creates a retailer and updates it', async ({ unifiedApi, db }) => {
     const companyId = await unifiedApi.companyId();
 
-    // Step "create": POST /retailers (name gets the qa_auto_ prefix) → new id ← API response
+    // Step "create": POST /retailers (name gets the qa_auto_ prefix) → new id
     const retailerId = await test.step('create', async () => {
       const response = await unifiedApi.retailers.create(createRetailerPayload());
       expect([200, 201]).toContain(response.status());
       const { id } = await response.json();
       expect(id).toBeTruthy();
-      expect(await findRetailer(db.hub, companyId, id)).toBeDefined(); // db column retailer_id = API `id`
+      expect(await findRetailer(db.hub, companyId, id)).toBeDefined(); // retailer_id in the database = id in the API
       return id as string;
     });
 

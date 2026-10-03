@@ -2,12 +2,9 @@ import { test, expect } from '@fixtures';
 import { addresses, carts, payments } from '@data/static/checkout';
 import { findOrder } from '@db/queries/hub/orders';
 
-/**
- * WHAT:   Checkout with the Shopware 6 + Braintree shop: card, invoice.
- *         Plus a read-only check that all payment methods can be clicked.
- * FROM:   Cypress checkout-e2e: shopware6-braintree-{card,invoice}.cy.js.
- * CHANGES DATA: yes — the order tests create test orders.
- */
+// Checkout with the Shopware 6 + Braintree shop: card, invoice.
+// Plus a read-only check that all payment methods can be clicked.
+// Changes data: the order tests create test orders.
 test.describe('Checkout - Shopware 6 + Braintree', () => {
   // Before each test: fill the contact form and go to the payment step
   test.beforeEach(async ({ checkoutPage }) => {

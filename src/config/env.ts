@@ -1,108 +1,105 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
-/**
- * All environment variables, grouped by what uses them.
- *
- * A group is validated the first time it is read, so running the API suites does
- * not require hub or checkout values — but a group that IS used fails immediately
- * with the list of missing variables, instead of an "undefined" deep inside a test.
- */
-const str = z.string().min(1);
+// All .env variables, grouped by what uses them.
+// A group is checked the first time a test reads it, so an API run does not need the hub values.
+// A missing value fails right away with the variable name.
+
+const text = z.string().min(1);
+const url = z.string().url();
 const port = z.coerce.number().int().positive().default(5432);
 
-const schemas = {
+const groups = {
   hub: z.object({
-    HUB_URL: z.string().url(),
-    HUB_USER_EMAIL: str,
-    HUB_USER_PASSWORD: str,
-    HUB_COMPANY_NAME: str,
-    /** Version endpoint pinged to wake the hub API before UI tests. */
-    HUB_API_HEALTH_URL: z.string().url(),
+    HUB_URL: url,
+    HUB_USER_EMAIL: text,
+    HUB_USER_PASSWORD: text,
+    HUB_COMPANY_NAME: text,
+    HUB_API_HEALTH_URL: url, // pinged to wake the hub API before UI tests
   }),
 
-  /** Hub (Lumen) API login used to trigger crons. */
+  // hub (Lumen) API login, used to start crons
   hubApi: z.object({
-    HUB_API_BASE_URL: z.string().url(),
-    HUB_API_EMAIL: str,
-    HUB_API_PASSWORD: str,
+    HUB_API_BASE_URL: url,
+    HUB_API_EMAIL: text,
+    HUB_API_PASSWORD: text,
   }),
 
   checkout: z.object({
-    CHECKOUT_URL: z.string().url(),
-    CHECKOUT_API_URL: z.string().url(),
+    CHECKOUT_URL: url,
+    CHECKOUT_API_URL: url,
   }),
 
-  /** Customer self-service portal (login page with company_id). */
   css: z.object({
-    CSS_URL: z.string().url(),
+    CSS_URL: url,
   }),
 
-  /** POS portal: login page with company_id, location id + password. */
   pos: z.object({
-    POS_URL: z.string().url(),
-    POS_LOCATION_ID: str,
-    POS_PASSWORD: str,
+    POS_URL: url,
+    POS_LOCATION_ID: text,
+    POS_PASSWORD: text,
   }),
 
   customerApi: z.object({
-    CUSTOMER_API_BASE_URL: z.string().url(),
-    CUSTOMER_API_VERSION: str,
-    CUSTOMER_API_USERNAME: str,
-    CUSTOMER_API_PASSWORD: str,
-    CUSTOMER_API_COMPANY_ID: str,
+    CUSTOMER_API_BASE_URL: url,
+    CUSTOMER_API_VERSION: text,
+    CUSTOMER_API_USERNAME: text,
+    CUSTOMER_API_PASSWORD: text,
+    CUSTOMER_API_COMPANY_ID: text,
   }),
 
   unifiedApi: z.object({
-    UNIFIED_API_BASE_URL: z.string().url(),
-    UNIFIED_API_VERSION: str,
-    UNIFIED_API_CONSUMER_KEY: str,
-    UNIFIED_API_CONSUMER_SECRET: str,
+    UNIFIED_API_BASE_URL: url,
+    UNIFIED_API_VERSION: text,
+    UNIFIED_API_CONSUMER_KEY: text,
+    UNIFIED_API_CONSUMER_SECRET: text,
   }),
 
   hubDb: z.object({
-    HUB_DB_HOST: str,
+    HUB_DB_HOST: text,
     HUB_DB_PORT: port,
-    HUB_DB_NAME: str,
-    HUB_DB_USER: str,
-    HUB_DB_PASSWORD: str,
+    HUB_DB_NAME: text,
+    HUB_DB_USER: text,
+    HUB_DB_PASSWORD: text,
   }),
 
   checkoutDb: z.object({
-    CHECKOUT_DB_HOST: str,
+    CHECKOUT_DB_HOST: text,
     CHECKOUT_DB_PORT: port,
-    CHECKOUT_DB_NAME: str,
-    CHECKOUT_DB_USER: str,
-    CHECKOUT_DB_PASSWORD: str,
+    CHECKOUT_DB_NAME: text,
+    CHECKOUT_DB_USER: text,
+    CHECKOUT_DB_PASSWORD: text,
   }),
 
   testData: z.object({
-    TEST_DATA_PREFIX: str.default('qa_auto_'),
+    TEST_DATA_PREFIX: text.default('qa_auto_'),
   }),
 };
 
-type Schemas = typeof schemas;
-type Env = { readonly [K in keyof Schemas]: z.infer<Schemas[K]> };
+const checked: Record<string, unknown> = {};
 
-const cache: Partial<Record<keyof Schemas, unknown>> = {};
-
-function load<K extends keyof Schemas>(group: K): z.infer<Schemas[K]> {
-  if (!(group in cache)) {
-    const result = schemas[group].safeParse(process.env);
+function read<T>(name: string, schema: z.ZodType<T>): T {
+  if (!(name in checked)) {
+    const result = schema.safeParse(process.env);
     if (!result.success) {
-      const problems = result.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
-      throw new Error(`Missing or invalid environment variables for "${group}" (check .env):\n${problems}`);
+      const problems = result.error.issues.map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`).join('\n');
+      throw new Error(`Missing or invalid environment variables for "${name}" (check .env):\n${problems}`);
     }
-    cache[group] = result.data;
+    checked[name] = result.data;
   }
-  return cache[group] as z.infer<Schemas[K]>;
+  return checked[name] as T;
 }
 
-/**
- * Used everywhere as env.<group>.<VARIABLE>, e.g. env.unifiedApi.UNIFIED_API_BASE_URL.
- * The Proxy turns each `env.<group>` read into load(group): the group is validated
- * the first time it is read, then cached.
- */
-export const env = new Proxy({} as Env, {
-  get: (_target, group: string) => load(group as keyof Schemas),
-});
+// Use it as env.<group>.<VARIABLE>, e.g. env.hub.HUB_URL
+export const env = {
+  get hub() { return read('hub', groups.hub); },
+  get hubApi() { return read('hubApi', groups.hubApi); },
+  get checkout() { return read('checkout', groups.checkout); },
+  get css() { return read('css', groups.css); },
+  get pos() { return read('pos', groups.pos); },
+  get customerApi() { return read('customerApi', groups.customerApi); },
+  get unifiedApi() { return read('unifiedApi', groups.unifiedApi); },
+  get hubDb() { return read('hubDb', groups.hubDb); },
+  get checkoutDb() { return read('checkoutDb', groups.checkoutDb); },
+  get testData() { return read('testData', groups.testData); },
+};

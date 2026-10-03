@@ -1,5 +1,4 @@
 // Test data for the checkout tests (tests/checkout-e2e/*.spec.ts).
-// Copied from the Cypress project: cypress/fixtures/api-keys-cartid.json and checkout-data.json.
 
 /** A test cart. The checkout URL is {CHECKOUT_URL}{apiKey}/{cartId}. */
 export type Cart = { apiKey: string; cartId: string };
@@ -29,7 +28,7 @@ export type CheckoutAddress = {
   notes: string;
 };
 
-/** Test addresses. (Other countries are in the Cypress file checkout-data.json if needed later.) */
+/** Test addresses. */
 export const addresses = {
   germany: {
     firstName: 'Shahiduz',

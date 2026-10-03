@@ -5,26 +5,22 @@ import type { PosCustomer } from '@pages/pos/PosPage';
 import {
   findDraftItems,
   findDraftOrder,
+  getDraftOrderStatus,
   findOrderCustomer,
   findPosProduct,
   findProductsOfFilterOption,
   findRetailer,
 } from '@db/queries/hub/pos';
 
-/**
- * WHAT:   POS Create order: the Add item wizard (product → variant → configure), its filters (DB) + search, Remove item, voucher,
- *         the full flow to a new quote ("quote_…" in draft_orders.draft_id), its checkout link (opens with
- *         the item and the customer's data and the voucher), and Cancel of a quote (its id is then gone from the list).
- * NEEDS:  a product the POS can sell (active, in stock, sku + name, not qa_auto, 2+ variants) ← hub db.
- * CHANGES DATA: yes — each run creates 2 quotes with a new customer "qa_auto_…@gmail.com";
- *         the cancel test cancels its own quote.
- * posPage methods ← src/pages/pos/PosPage.ts
- */
+// POS → Create order: the Add item steps (product → variant → configure), filters and search,
+// Remove item, voucher, a new quote ("quote_…") and its checkout link, and Cancel of a quote.
+// Needs: a product the POS can sell (active, in stock, sku and name, not qa_auto, 2 or more variants).
+// Changes data: each run creates 2 quotes with a new qa_auto_ customer; the cancel test cancels its own quote.
 test.describe.configure({ mode: 'default' });
 
-const VOUCHER = '12'; // owner: any voucher; checkout only checks that it is there, not its discount
+const VOUCHER = '12'; // only checked that it is there, not its discount
 
-/** A new customer for every quote (owner: create a new customer with an email). */
+// a new customer for every quote
 function newCustomer(): PosCustomer {
   return {
     email: testEmail(),
@@ -45,7 +41,7 @@ test.describe('POS - create order', () => {
   });
 
   test('Add item: product → variant → configure shows the sku and name, item can be removed', async ({ posPage, db }) => {
-    // SETUP: a product + variant the POS can sell ← hub db
+    // SETUP: a product + variant the POS can sell
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const product = await findPosProduct(db.hub, retailer.company_id);
 
@@ -53,7 +49,7 @@ test.describe('POS - create order', () => {
     await posPage.openCreateOrder();
     await posPage.chooseProduct(product.product_name, product.variant_name);
 
-    // CHECK: Configure step shows the variant's sku and name from the DB
+    // CHECK: the Configure step shows the sku and name of the variant
     await expect(posPage.configureDetail('SKU:')).toHaveText(product.sku);
     await expect(posPage.configureDetail('Name:')).toHaveText(product.variant_name);
 
@@ -72,7 +68,7 @@ test.describe('POS - create order', () => {
   });
 
   test('Add item filters: a filter option shows the products that have it (DB), search finds by name', async ({ posPage, db }) => {
-    // SETUP: a checkbox filter option used by products, e.g. Material "Plastic" → its products ← hub db
+    // SETUP: a filter option that products have, e.g. Material "Plastic", and those products
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const rows = await findProductsOfFilterOption(db.hub, retailer.company_id);
     test.skip(rows.length === 0, 'no product has a filter option');
@@ -83,7 +79,7 @@ test.describe('POS - create order', () => {
     await posPage.openProductList();
     await posPage.tickProductFilter(option);
 
-    // CHECK: exactly the products from the DB are shown, and the filter chip is there
+    // CHECK: exactly those products are shown, and the filter chip is there
     await expect(posPage.productCards()).toHaveCount(rows.length);
     for (const row of rows) {
       await expect(posPage.productCards().filter({ hasText: row.product_name }).first()).toBeVisible();
@@ -104,7 +100,7 @@ test.describe('POS - create order', () => {
   });
 
   test('creates a quote with voucher 12 → draft_orders, and its checkout link opens with the data', async ({ posPage, db }) => {
-    // SETUP: product ← hub db, new customer
+    // SETUP: product
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const product = await findPosProduct(db.hub, retailer.company_id);
     const customer = newCustomer();
@@ -115,7 +111,7 @@ test.describe('POS - create order', () => {
     await posPage.addConfiguredItem();
     await posPage.addVoucher(VOUCHER);
 
-    // CHECK: voucher is taken (field locked, "Remove" button next to it)
+    // CHECK: the voucher is taken (the field is locked)
     await expect(posPage.page.getByRole('textbox', { name: 'Voucher code' })).toBeDisabled();
 
     // ACTION: Continue → customer → Continue
@@ -135,7 +131,7 @@ test.describe('POS - create order', () => {
     // CHECK: order page "#quote_…"
     await expect(posPage.page.getByRole('heading', { name: `#${draftId}` })).toBeVisible();
 
-    // CHECK (DB): draft_orders row: open, this retailer + company, has a checkout link
+    // CHECK: the quote is in the database: open, this retailer and company, with a checkout link
     const draft = await findDraftOrder(db.hub, draftId);
     expect(draft, `${draftId} should be in draft_orders.draft_id`).toBeDefined();
     expect(draft!.status).toBe('open');
@@ -143,7 +139,7 @@ test.describe('POS - create order', () => {
     expect(draft!.company_id).toBe(retailer.company_id);
     expect(draft!.order_checkout_link).toContain('https://');
 
-    // CHECK (DB): draft_items has the variant (sku + name), the customer has the new email
+    // CHECK: its item is the variant (sku and name), and the customer has the new email
     const items = await findDraftItems(db.hub, draftId);
     expect(items).toHaveLength(1);
     expect(items[0].sku).toBe(product.sku);
@@ -151,13 +147,13 @@ test.describe('POS - create order', () => {
     const savedCustomer = await findOrderCustomer(db.hub, draft!.order_customer_id);
     expect(savedCustomer.email).toBe(customer.email);
 
-    // CHECK: the page's "Checkout link" is the one in the DB
+    // CHECK: the "Checkout link" on the page is the one in the database
     await expect(posPage.checkoutLink()).toHaveAttribute('href', draft!.order_checkout_link);
 
     // ACTION: open the checkout link
     await posPage.page.goto(draft!.order_checkout_link);
 
-    // CHECK: checkout shows the item, and the form is filled with the customer's data
+    // CHECK: the checkout shows the item, and the form has the customer's data
     await expect(posPage.page.getByText(product.variant_name).first()).toBeVisible({ timeout: 30_000 });
     await expect(posPage.page.getByRole('textbox', { name: 'First name *' })).toHaveValue(customer.firstName);
     await expect(posPage.page.getByRole('textbox', { name: 'Last name *' })).toHaveValue(customer.lastName);
@@ -167,13 +163,13 @@ test.describe('POS - create order', () => {
     await expect(posPage.page.getByRole('textbox', { name: 'Postal Code *' })).toHaveValue(customer.postalCode);
     await expect(posPage.page.getByRole('textbox', { name: 'City *' })).toHaveValue(customer.city);
 
-    // CHECK: the voucher is there (only that it is applied — the discount amount is not checked, owner)
+    // CHECK: the voucher is applied (the discount amount is not checked)
     await expect(posPage.page.getByRole('button', { name: 'Remove promotion code' })).toBeVisible();
     await expect(posPage.page.getByText(VOUCHER, { exact: true }).first()).toBeVisible();
   });
 
   test('cancels a quote → cancelled in draft_orders and gone from the list', async ({ posPage, db }) => {
-    // SETUP: a new quote of our own (owner: Cancel may be used)
+    // SETUP: a new quote of our own
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const product = await findPosProduct(db.hub, retailer.company_id);
     const draftId = await posPage.createQuote(product.product_name, product.variant_name, newCustomer());
@@ -182,9 +178,9 @@ test.describe('POS - create order', () => {
     await posPage.openOrder(draftId);
     await posPage.cancelOrder(draftId);
 
-    // CHECK (DB): status cancelled, deleted_at filled
+    // CHECK: status cancelled and deleted_at set
     await expect
-      .poll(async () => (await findDraftOrder(db.hub, draftId))?.status, { message: `${draftId} status in draft_orders` })
+      .poll(() => getDraftOrderStatus(db.hub, draftId), { message: `${draftId} status in draft_orders` })
       .toBe('cancelled');
     const draft = await findDraftOrder(db.hub, draftId);
     expect(draft!.deleted_at, 'a cancelled quote is soft-deleted').not.toBeNull();

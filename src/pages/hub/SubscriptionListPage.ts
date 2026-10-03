@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/** Hub → Subscriptions list. Selectors carried over from hub-e2e-automation SubscriptionListPage.js. */
+/** Hub → Subscriptions list. */
 export class SubscriptionListPage {
   readonly searchInput: Locator;
   readonly clearFiltersButton: Locator;
@@ -11,7 +11,6 @@ export class SubscriptionListPage {
   readonly nextPageButton: Locator;
   readonly lastPageButton: Locator;
 
-  /** Created per test by the fixture of the same name (src/fixtures/index.ts); `page` = Playwright's browser tab. */
   constructor(private readonly page: Page) {
     this.searchInput = page.locator('.w-64 input[placeholder="Search..."]');
     this.clearFiltersButton = page.locator('button', { hasText: 'Clear' }).first();
@@ -39,7 +38,7 @@ export class SubscriptionListPage {
   /**
    * Opens a subscription's detail page directly by its URL (a fresh page load).
    * Not via list search + click: after the click the hub showed the new URL but kept the
-   * PREVIOUS subscription loaded, so an action went to the wrong subscription (2026-09-28).
+   * previous subscription loaded, so an action went to the wrong subscription.
    * The list search itself is tested in subscription-list.spec.ts.
    */
   async openSubscription(subscriptionId: string) {
@@ -90,7 +89,7 @@ export class SubscriptionListPage {
   }
 
   // ---------- filters ----------
-  // The Cypress page object used these generated headlessui ids; kept as-is.
+  // generated headlessui ids, may break when the hub UI changes
 
   async filterByStatus(status: string) {
     await this.applyFilter('#headlessui-listbox-button-v-0-2-3', status);
@@ -102,8 +101,8 @@ export class SubscriptionListPage {
   }
 
   /**
-   * Picks a filter option, then waits until the "1-10 of N" label changes — i.e. the
-   * filtered list has loaded (Cypress waited a fixed 3s). A filter that does not change
+   * Picks a filter option, then waits until the "1-10 of N" label changes - i.e. the
+   * filtered list has loaded. A filter that does not change
    * the count is accepted after 10s.
    */
   private async applyFilter(dropdown: string, option: string) {

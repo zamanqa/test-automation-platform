@@ -3,7 +3,7 @@ import type { Card } from '@data/static/checkout';
 
 /**
  * Mollie payment (Saleor + WooCommerce shops).
- * IMPORTANT: the Mollie method is chosen on the CONTACT FORM, before Continue. Otherwise Pay stays disabled.
+ * The Mollie method is chosen on the contact form, before Continue. Otherwise Pay stays disabled.
  * Method buttons: data-test-id="mollie-payment-method-<name>" (creditcard, ideal, bancontact, kbc, sepa).
  * For card, Pay opens Mollie's own page where the card is entered.
  */

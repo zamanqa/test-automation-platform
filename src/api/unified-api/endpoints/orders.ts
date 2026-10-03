@@ -1,74 +1,65 @@
 import type { UnifiedApiClient } from '../UnifiedApiClient';
 
-/**
- * /orders endpoints of the Unified Customer API.
- *
- * Pattern shared by every file in endpoints/ (both APIs):
- *   - created once inside the client:  readonly orders = new OrdersEndpoint(this)
- *   - the constructor keeps that client as `this.api`
- *   - each method = one API call: it only supplies method + path (+ body) and delegates
- *     to this.api.company(...), which adds URL, company id and auth.
- *   - methods return Playwright's APIResponse; the TEST checks status and body.
- */
+// /orders endpoints. Each method is one API call; the test checks status and body.
 export class OrdersEndpoint {
   constructor(private readonly api: UnifiedApiClient) {}
 
-  /** GET {base}/{version}/{companyId}/orders. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /orders */
   list() {
     return this.api.company('GET', '/orders');
   }
 
-  /** GET {base}/{version}/{companyId}/orders/{orderId} — params: orderId: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /orders/{orderId} */
   get(orderId: string) {
     return this.api.company('GET', `/orders/${orderId}`);
   }
 
-  /** POST /orders/full — creates an order with items. */
+  /** POST /orders/full - creates an order with items. */
   createFull(body: unknown) {
     return this.api.company('POST', '/orders/full', { data: body });
   }
 
-  /** PUT {base}/{version}/{companyId}/orders/{orderId} — params: orderId: string, body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** PUT /orders/{orderId} */
   update(orderId: string, body: unknown) {
     return this.api.company('PUT', `/orders/${orderId}`, { data: body });
   }
 
-  /** PUT {base}/{version}/{companyId}/orders/{orderId}/address — params: orderId: string, body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** PUT /orders/{orderId}/address */
   updateAddress(orderId: string, body: unknown) {
     return this.api.company('PUT', `/orders/${orderId}/address`, { data: body });
   }
 
-  /** GET {base}/{version}/{companyId}/orders/{orderId}/payment-update-link — params: orderId: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /orders/{orderId}/payment-update-link */
   paymentUpdateLink(orderId: string) {
     return this.api.company('GET', `/orders/${orderId}/payment-update-link`);
   }
 
-  /** GET {base}/{version}/{companyId}/orders/{orderId}/payment-details — params: orderId: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /orders/{orderId}/payment-details */
   paymentDetails(orderId: string) {
     return this.api.company('GET', `/orders/${orderId}/payment-details`);
   }
 
-  /** POST {base}/{version}/{companyId}/orders/{orderId}/notes — params: orderId: string, note: { author: string; message: string; description: string; pinned: boolean }. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /orders/{orderId}/notes */
   addNote(orderId: string, note: { author: string; message: string; description: string; pinned: boolean }) {
     return this.api.company('POST', `/orders/${orderId}/notes`, { data: note });
   }
 
-  /** POST {base}/{version}/{companyId}/orders/fulfill — params: orderIds: string[]. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /orders/fulfill */
   fulfill(orderIds: string[]) {
     return this.api.company('POST', '/orders/fulfill', { data: { order_ids: orderIds } });
   }
 
-  /** POST {base}/{version}/{companyId}/orders/{orderId}/cancel — params: orderId: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /orders/{orderId}/cancel */
   cancel(orderId: string) {
     return this.api.company('POST', `/orders/${orderId}/cancel`, { data: {} });
   }
 
-  /** POST {base}/{version}/{companyId}/orders/{orderId}/charge — params: orderId: string, message = 'Test Message'. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /orders/{orderId}/charge */
   charge(orderId: string, message = 'Test Message') {
     return this.api.company('POST', `/orders/${orderId}/charge`, { data: { message } });
   }
 
-  /** POST {base}/{version}/{companyId}/orders/{orderId}/generate-invoice — params: orderId: string, sendEmail = true. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /orders/{orderId}/generate-invoice */
   generateInvoice(orderId: string, sendEmail = true) {
     return this.api.company('POST', `/orders/${orderId}/generate-invoice`, { data: { send_email: sendEmail } });
   }

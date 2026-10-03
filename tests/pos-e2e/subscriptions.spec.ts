@@ -4,17 +4,13 @@ import {
   countRetailerSubscriptions,
   countRetailerSubscriptionsByStatus,
   findRetailer,
-  findSubscriptionBySerial,
+  getOrderIdOfSerial,
 } from '@db/queries/hub/pos';
 
-/**
- * WHAT:   POS Subscriptions tabs. "started": count, Status filter "Active" (= DB) and search.
- *         "not started": search, the Start subscription dialog (Generate / Close), and Start subscription with a
- *         serial number → the subscription is in the DB (subscriptions.serial_number).
- * NEEDS:  at least one row in "Subscriptions - not started" (owner: any row may be started).
- * CHANGES DATA: yes — the last test starts the subscription of the first "not started" row, serial "qa_auto_sn_…".
- * posPage methods ← src/pages/pos/PosPage.ts
- */
+// POS → Subscriptions tabs. "started": count, Status filter and search.
+// "not started": search, the Start subscription dialog, and starting a subscription with a serial number.
+// Needs: at least one row in "Subscriptions - not started".
+// Changes data: the last test starts the first "not started" subscription with serial "qa_auto_sn_…".
 test.describe.configure({ mode: 'default' });
 
 test.describe('POS - subscriptions', () => {
@@ -23,7 +19,7 @@ test.describe('POS - subscriptions', () => {
   });
 
   test('shows the started subscriptions with the number from the DB', async ({ posPage, db }) => {
-    // SETUP: subscriptions of the retailer's orders ← hub db
+    // SETUP: number of subscriptions of the retailer's orders
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const total = await countRetailerSubscriptions(db.hub, retailer.retailer_id);
 
@@ -36,7 +32,7 @@ test.describe('POS - subscriptions', () => {
   });
 
   test('started: Status filter "Active" shows only active subscriptions, as many as in the DB', async ({ posPage, db }) => {
-    // SETUP: active subscriptions of the retailer ← hub db
+    // SETUP: active subscriptions of the retailer
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const active = await countRetailerSubscriptionsByStatus(db.hub, retailer.retailer_id, 'active');
 
@@ -111,9 +107,9 @@ test.describe('POS - subscriptions', () => {
     // CHECK: dialog closes
     await expect(posPage.startDialog()).toBeHidden({ timeout: 30_000 });
 
-    // CHECK (DB): a subscription with this serial number exists for that order
+    // CHECK: a subscription with this serial number exists for that order
     await expect
-      .poll(async () => (await findSubscriptionBySerial(db.hub, serialNumber))?.order_id, {
+      .poll(() => getOrderIdOfSerial(db.hub, serialNumber), {
         message: `subscription with serial ${serialNumber}`,
         timeout: 30_000,
       })

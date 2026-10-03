@@ -1,5 +1,3 @@
-// test, expect ← src/fixtures/index.ts
-// ...          ← src/db/queries/hub/debtist.ts (debtist_claims = debt-collection cases)
 import { test, expect } from '@fixtures';
 import {
   backdateInvoiceAsFailed,
@@ -9,14 +7,11 @@ import {
   firstInvoiceIdOf,
 } from '@db/queries/hub/debtist';
 
-/**
- * WHAT:   OLD Customer API — /debtist (debt collection).
- * FROM:   cus-api cypress/e2e/customer-api/16-debtist/debtist.cy.js (5 tests).
- * CHANGES DATA: yes — backdates one invoice/transaction by 3 days (failed) and files a claim;
- *         uploads a small test PDF to the newest claim (sent to Debtist dev).
- */
+// Customer API - /debtist (debt collection).
+// Changes data: backdates one invoice and its transaction by 3 days, marks it failed and files a claim;
+// uploads a small PDF to the newest claim (goes to the Debtist dev system).
 
-/** Some endpoints return a bare array, others { data: [...] } — this returns the list either way. */
+// some endpoints return a plain list, others { data: [...] }
 async function listIn(response: { json(): Promise<unknown> }) {
   const body = (await response.json()) as unknown[] | { data: unknown[] };
   return Array.isArray(body) ? body : body.data;
@@ -35,7 +30,7 @@ test.describe('Customer API - debtist (debt collection)', () => {
   });
 
   test('fetches a claim by id', async ({ customerApi, db }) => {
-    // SETUP: newest claim ← hub db (companyId ← .env)
+    // SETUP: newest claim
     const claim = await findLatestClaim(db.hub, customerApi.companyId);
 
     // ACTION: GET /debtist/claims/{claim_id}
@@ -69,7 +64,7 @@ test.describe('Customer API - debtist (debt collection)', () => {
     // ACTION: POST /debtist/invoice/{invoiceId}/uploads (form-data "file")
     const upload = await customerApi.debtist.uploadFile(invoiceId, fileName, pdf);
 
-    // CHECK: uploaded; upload_id = "media/<folder>/<date>-<code>-<file name>"
+    // CHECK: uploaded; upload_id looks like "media/<folder>/<date>-<code>-<file name>"
     expect(upload.status()).toBe(201);
     const { success, upload_id } = await upload.json();
     expect(success).toBe(true);
@@ -85,7 +80,7 @@ test.describe('Customer API - debtist (debt collection)', () => {
   });
 
   test('files a claim for an overdue invoice', async ({ customerApi, db }) => {
-    // SETUP: unpaid invoice without claim → make it "overdue + failed" in the database
+    // SETUP: unpaid invoice without claim, made overdue and failed in the database
     const invoice = await findClaimableInvoice(db.hub, customerApi.companyId);
     await backdateInvoiceAsFailed(db.hub, customerApi.companyId, invoice.transaction_id);
 

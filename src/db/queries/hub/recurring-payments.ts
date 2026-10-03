@@ -1,17 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/customer-api/css/css.spec.ts
-//   tests/customer-api/deliveries/deliveries.spec.ts
-//   tests/css-e2e/01-css-login.spec.ts
-//   tests/customer-api/recurring-payments/recurring-payments.spec.ts
-//   tests/hub-e2e/cron/cron.spec.ts
-//   tests/hub-e2e/orders/order-detail.spec.ts
-//   tests/hub-e2e/subscriptions/subscription-recurring-payments.spec.ts
-//   tests/unified-api/css/css.spec.ts
-//   tests/unified-api/deliveries/deliveries.spec.ts
-//   tests/unified-api/recurring-payments/recurring-payments.spec.ts
-
 /** Queries on recurring_payments. */
 
 /** Up to `limit` upcoming billing (= shipping) dates, as YYYY-MM-DD. */
@@ -136,7 +124,7 @@ export async function countOpenRecurringPayments(hub: Database, subscriptionId: 
 
 /**
  * An active normal checkout subscription with at least 4 open recurring payments,
- * and the ids of its first four. Takes the second match (OFFSET 1), as the Cypress query did.
+ * and the ids of its first four. Takes the second match (OFFSET 1).
  */
 export function findSubscriptionWithFourOpenPayments(hub: Database, companyId: string) {
   return hub.one<{ subscription_id: string; rp1: string; rp2: string; rp3: string; rp4: string }>(

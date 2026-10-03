@@ -1,44 +1,33 @@
-import { Pool, type QueryResultRow } from 'pg';
-import { databases, type DatabaseName } from './databases';
+import { Pool, type PoolConfig, type QueryResultRow } from 'pg';
+import { checkoutDbSettings, hubDbSettings } from './databases';
 
-/**
- * One database. The pool is created on the first query, so a database that a
- * test run never touches is never connected to.
- *
- * Always pass values as parameters ($1, $2 ...), never build them into the SQL string.
- *
- * DATABASE CHAIN:
- *
- *   .env  →  src/config/env.ts (env.hubDb.HUB_DB_HOST ...)
- *         →  src/db/databases.ts  { hub: () => settings, checkout: () => settings }
- *         →  createDatabases() below: one `Database` per entry  → db.hub, db.checkout
- *         →  `db` fixture (src/fixtures/index.ts) gives it to the test
- *         →  query helpers take one Database as first argument:
- *              findOrder(db.hub, orderId)   in src/db/queries/hub/orders.ts
- *                → db.hub.maybeOne(sql, params) → query() → getPool().query()
- */
+type Row = QueryResultRow;
+
+// One database. It connects on the first query, so a run that never uses it never connects.
+// Always pass values as $1, $2 ... parameters, never put them into the SQL string.
 export class Database {
   private pool?: Pool;
 
-  /** `name` is a key of databases.ts ('hub' | 'checkout'); used to look up the settings. */
-  constructor(readonly name: DatabaseName) {}
+  constructor(
+    readonly name: string,
+    private readonly settings: () => PoolConfig,
+  ) {}
 
-  /** Opens the pool on first use: calls databases[name]() → reads + validates env for that database. */
   private getPool(): Pool {
     if (!this.pool) {
-      this.pool = new Pool({ ...databases[this.name](), max: 3 });
+      this.pool = new Pool({ ...this.settings(), max: 3 });
     }
     return this.pool;
   }
 
-  /** All matching rows (empty array if none). Also used for INSERT/UPDATE/DELETE. */
-  async query<T extends QueryResultRow = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+  /** All rows (empty array if none). Also used for INSERT / UPDATE / DELETE. */
+  async query<T extends Row = Row>(sql: string, params: unknown[] = []): Promise<T[]> {
     const result = await this.getPool().query<T>(sql, params);
     return result.rows;
   }
 
-  /** Exactly the first row; throws with the SQL if there is none. */
-  async one<T extends QueryResultRow = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T> {
+  /** The first row. Throws if there is none. */
+  async one<T extends Row = Row>(sql: string, params: unknown[] = []): Promise<T> {
     const rows = await this.query<T>(sql, params);
     if (rows.length === 0) {
       throw new Error(`[db:${this.name}] expected at least one row, got none.\nSQL: ${sql.trim()}\nParams: ${JSON.stringify(params)}`);
@@ -47,7 +36,7 @@ export class Database {
   }
 
   /** The first row, or undefined. */
-  async maybeOne<T extends QueryResultRow = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+  async maybeOne<T extends Row = Row>(sql: string, params: unknown[] = []): Promise<T | undefined> {
     const rows = await this.query<T>(sql, params);
     return rows[0];
   }
@@ -58,22 +47,19 @@ export class Database {
   }
 }
 
-export type Databases = { readonly [K in DatabaseName]: Database } & {
-  closeAll(): Promise<void>;
-};
-
-/**
- * Creates a Database for every entry in databases.ts.
- * Called once per worker by the `db` fixture; closeAll() is called by that fixture's teardown.
- */
-export function createDatabases(): Databases {
-  const names = Object.keys(databases) as DatabaseName[];
-  const instances = Object.fromEntries(names.map((name) => [name, new Database(name)])) as Record<DatabaseName, Database>;
+// Called once per worker by the `db` fixture → db.hub, db.checkout
+export function createDatabases() {
+  const hub = new Database('hub', hubDbSettings);
+  const checkout = new Database('checkout', checkoutDbSettings);
 
   return {
-    ...instances,
-    closeAll: async () => {
-      await Promise.all(names.map((name) => instances[name].close()));
+    hub,
+    checkout,
+    async closeAll() {
+      await hub.close();
+      await checkout.close();
     },
   };
 }
+
+export type Databases = ReturnType<typeof createDatabases>;

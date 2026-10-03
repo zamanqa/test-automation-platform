@@ -1,7 +1,3 @@
-// USED BY (files that import this one):
-//   tests/customer-api/orders/orders.spec.ts
-//   tests/unified-api/orders/orders.spec.ts
-
 /** Order request bodies that are the same for both APIs. Values from orderPayloads.js (both repos). */
 
 /** PUT /orders/{id}/address: new date of birth plus billing and shipping address. */

@@ -1,16 +1,10 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/css-e2e/03-refer-a-friend.spec.ts
-//   tests/css-e2e/04-add-new-product.spec.ts
-//   tests/customer-api/customers/customers.spec.ts
-//   tests/unified-api/customers/customers.spec.ts
-
 /** Queries on customers, customer_account and referral codes. */
 
 export type CustomerRow = { uid: string; email: string; first_name: string; last_name: string; external_customer_id: string | null };
 
-/** First customer ever created for the company. companyId ← API login or .env. Throws if none. */
+/** First customer ever created for the company. Throws if none. */
 export function findOldestCustomer(hub: Database, companyId: string) {
   return hub.one<CustomerRow>(
     `SELECT uid, email, first_name, last_name, external_customer_id
@@ -122,6 +116,12 @@ export async function countCustomerNotes(hub: Database, uid: string, message: st
 /** Referral code of a customer email (checkout.checkout_voucher_codes.voucher_code), or undefined. */
 export function findReferralCodeOfEmail(hub: Database, email: string) {
   return hub.maybeOne<{ voucher_code: string }>('SELECT voucher_code FROM checkout.checkout_voucher_codes WHERE referrer_email = $1', [email]);
+}
+
+/** Referral code of an email, or undefined. */
+export async function getReferralCodeOfEmail(hub: Database, email: string) {
+  const row = await findReferralCodeOfEmail(hub, email);
+  return row?.voucher_code;
 }
 
 /** company_id of a customer (cus_…). Throws if none. */

@@ -3,29 +3,15 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult, TestStep } from '@playwright/test/reporter';
 
-/**
- * Our own test report. Playwright calls it automatically (see "reporter" in playwright.config.ts).
- * After every run it:
- *   1. prints a short table in the terminal: PASS / FAIL / FLAKY / SKIP per test, and WHY
- *   2. writes <run folder>/index.html — the run folder is reports/<suite>/<start time>
- *      (set in playwright.config.ts), e.g. reports/hub-e2e/2026-09-28_20-15-03:
- *        - counters and a filter (All / Failed / Flaky / Skipped / Passed) + search box
- *        - one table per suite
- *        - at the very end: the ERROR LOG — for every failed test the full error, the code line,
- *          the steps it ran (the failing step in red), what the API answered, the screenshot,
- *          and links to the video / trace / error context
- *   3. deletes run folders (and zips) older than 3 days (KEEP_DAYS)
- *   4. rewrites the overview reports/index.html: every suite with its last runs (npm run summary)
- * One run folder holds:
- *   index.html     this page
- *   html-report/   Playwright's own report (npm run report) — its trace viewer = step-by-step debugging
- *   test-results/  screenshots, videos, traces, error-context.md of failed tests
- *   summary.json   the counters, read by the overview page
- * and next to it <start time>.zip — the whole run folder in one file, to download or send (Windows).
- */
+// Our own report, added in playwright.config.ts. After every run it:
+//   1. prints a PASS / FAIL / FLAKY / SKIP table in the terminal
+//   2. writes index.html into the run folder (reports/<suite>/<start time>), with an error log at the end
+//   3. deletes runs older than KEEP_DAYS
+//   4. updates the overview page reports/index.html (npm run summary)
+// A run folder has: index.html, html-report/, test-results/, summary.json, and a .zip of it next to it.
 
 const REPORTS = 'reports';
-/** Reports and history entries older than this are deleted (owner, 2026-09-29). */
+/** Reports and history entries older than this are deleted. */
 const KEEP_DAYS = 3;
 /** This run's folder, set in playwright.config.ts (e.g. reports/hub-e2e/2026-09-28_20-15-03). */
 const RUN_DIR = process.env.REPORT_RUN_DIR ?? `${REPORTS}/all/unknown-run`;
@@ -87,7 +73,7 @@ export default class SummaryReporter implements Reporter {
       failed: count('failed'),
       flaky: count('flaky'),
       skipped: count('skipped'),
-      // every test's result — used by the runner's History and Compare views
+      // every test's result - used by the runner's History and Compare views
       results: rows.map((row) => ({ file: row.file, title: row.title, status: row.status })),
     };
     fs.writeFileSync(path.join(RUN_DIR, 'summary.json'), JSON.stringify(summary, null, 2));
@@ -102,7 +88,7 @@ export default class SummaryReporter implements Reporter {
   private ran = false;
 
   // Playwright calls this after ALL reporters finished (so the html report and videos are complete):
-  // pack the run folder into <run folder>.zip — one file to download or send.
+  // pack the run folder into <run folder>.zip - one file to download or send.
   async onExit() {
     if (!this.ran) return;
     // keep the list of failed tests for the next "--last-failed" run of this suite (see playwright.config.ts)
@@ -365,7 +351,7 @@ export default class SummaryReporter implements Reporter {
   }
 }
 
-// ---------------------------------------------------------------- helpers
+// --- helpers ---
 
 /** Flattens a test's steps into list items: user steps, page actions, checks and hooks (not fixtures). */
 function collectSteps(steps: TestStep[], depth: number, out: string[]) {
@@ -473,7 +459,7 @@ function deleteOldRuns(suiteDir: string) {
 
 /**
  * Packs this run's folder into <run folder>.zip (next to it). Windows: its own tar.exe writes zip files.
- * Elsewhere (Linux CI) it is skipped — there the CI artifact download is already a zip.
+ * Elsewhere (Linux CI) it is skipped - there the CI artifact download is already a zip.
  * Returns true when the zip was made.
  */
 function zipRunFolder(): boolean {

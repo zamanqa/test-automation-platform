@@ -1,10 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/customer-api/product-tracking/product-tracking.spec.ts
-//   tests/hub-e2e/returns-and-repairs/return-and-repair.spec.ts
-//   tests/unified-api/product-tracking/product-tracking.spec.ts
-
 /** Queries on product_trackings (assets with serial numbers). */
 
 export type ProductTrackingRow = {

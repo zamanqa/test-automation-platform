@@ -2,13 +2,10 @@ import { test, expect } from '@fixtures';
 import { addresses, carts, payments } from '@data/static/checkout';
 import { findOrder } from '@db/queries/hub/orders';
 
-/**
- * WHAT:   Checkout with the Mollie shops (Saleor and WooCommerce): card, SEPA, invoice for each shop.
- *         Mollie is different: the payment method is chosen on the CONTACT FORM, before Continue.
- *         Card: Pay opens Mollie's own page, where the card is entered.
- * FROM:   Cypress checkout-e2e: saleor-mollie-{card,sepa,invoice}.cy.js, woocommerce-mollie-card.cy.js.
- * CHANGES DATA: yes — each test creates a test order.
- */
+// Checkout with the Mollie shops (Saleor and WooCommerce): card, SEPA, invoice for each shop.
+// Mollie is different: the payment method is chosen on the CONTACT FORM, before Continue.
+// Card: Pay opens Mollie's own page, where the card is entered.
+// Changes data: each test creates a test order.
 
 // The same 3 tests run for both Mollie shops
 const mollieShops = [

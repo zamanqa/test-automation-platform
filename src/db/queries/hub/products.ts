@@ -1,20 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   src/data/payloads/customer-api/draft-orders.ts
-//   src/data/payloads/unified-api/draft-orders.ts
-//   tests/css-e2e/04-add-new-product.spec.ts
-//   tests/customer-api/css/css.spec.ts
-//   tests/customer-api/draft-orders/draft-orders.spec.ts
-//   tests/customer-api/products/products.spec.ts
-//   tests/unified-api/css/css.spec.ts
-//   tests/unified-api/draft-orders/draft-orders.spec.ts
-//   tests/unified-api/products/products.spec.ts
-//   tests/hub-e2e/orders/create-order.spec.ts
-//   tests/hub-e2e/orders/order-more-actions.spec.ts
-//   tests/hub-e2e/products/products.spec.ts
-//   tests/hub-e2e/products/attributes.spec.ts
-
 /** Queries on products and product_variants. */
 
 export type SubscriptionVariantRow = {
@@ -245,7 +230,7 @@ export async function countAttributeValues(hub: Database, attributeId: string) {
 
 // ---------- product sync ----------
 
-/** Empties the cache tables; the product sync does not start while old cache locks are there (owner, 2026-09-29). */
+/** Empties the cache tables; the product sync does not start while old cache locks are there. */
 export async function clearCacheTables(hub: Database) {
   await hub.query('DELETE FROM public.cache_locks');
   await hub.query('DELETE FROM public."cache"');
@@ -257,7 +242,7 @@ export async function countAttributes(hub: Database, companyId: string) {
   return Number(row.count);
 }
 
-/** Number of queued "assign attribute to all" jobs (public.jobs, queue default — the worker runs only every 30 min on dev). */
+/** Number of queued "assign attribute to all" jobs (public.jobs, queue default - the worker runs only every 30 min on dev). */
 export async function countAssignAttributeJobs(hub: Database) {
   const row = await hub.one<{ count: string }>(
     `SELECT COUNT(*) AS count FROM public.jobs WHERE queue = 'default' AND payload LIKE '%AssignAttributeToAllJob%'`,
@@ -267,7 +252,7 @@ export async function countAssignAttributeJobs(hub: Database) {
 
 /**
  * Newest product for "Create order" → "Add item": active, "Allow order create" on, has an active variant,
- * and NOT test data (title does not start with qa_auto — owner's rule, 2026-09-29). Or undefined.
+ * and NOT test data (title does not start with qa_auto). Or undefined.
  */
 export function findProductForOrderItem(hub: Database, companyId: string) {
   return hub.maybeOne<{ id: string; title: string }>(
@@ -287,9 +272,9 @@ export function findProductForOrderItem(hub: Database, companyId: string) {
 // ---------- CSS "Add new product" (tests/css-e2e/04-add-new-product.spec.ts) ----------
 
 /**
- * A product for the CSS "Add new product" page of the customer's shop (owner): active, allow_order_create,
+ * A product for the CSS "Add new product" page of the customer's shop: active, allow_order_create,
  * type 'consumable', stock > 0; not qa_auto. Only products with ONE active variant (that variant also active,
- * orderable, stock > 0) — so the CSS skips the "Variants" step. Newest first. customerId = cus_…; or undefined.
+ * orderable, stock > 0) - so the CSS skips the "Variants" step. Newest first. customerId = cus_…; or undefined.
  */
 export function findCssProduct(hub: Database, customerId: string) {
   return hub.maybeOne<{ product_id: string; title: string; variant_id: string; stock: number }>(
@@ -305,4 +290,45 @@ export function findCssProduct(hub: Database, customerId: string) {
       LIMIT 1`,
     [customerId],
   );
+}
+
+// ---------- one value, for expect.poll in the product tests ----------
+
+/** Description of an attribute, or undefined. */
+export async function getAttributeDescription(hub: Database, companyId: string, slug: string) {
+  const row = await findAttributeBySlug(hub, companyId, slug);
+  return row?.description;
+}
+
+/** Labels of the options of an attribute. */
+export async function getAttributeOptionLabels(hub: Database, attributeId: string) {
+  const labels: string[] = [];
+  for (const option of await findAttributeOptions(hub, attributeId)) {
+    labels.push(option.label);
+  }
+  return labels;
+}
+
+/** msrp of a product as a number. */
+export async function getProductMsrp(hub: Database, companyId: string, productId: string) {
+  const row = await findProductById(hub, companyId, productId);
+  return Number(row?.msrp);
+}
+
+/** purchase_price of a product as a number. */
+export async function getProductPurchasePrice(hub: Database, companyId: string, productId: string) {
+  const row = await findProductById(hub, companyId, productId);
+  return Number(row?.purchase_price);
+}
+
+/** product_collection_id of a product, or undefined. */
+export async function getProductCollectionId(hub: Database, companyId: string, productId: string) {
+  const row = await findProductById(hub, companyId, productId);
+  return row?.product_collection_id;
+}
+
+/** subscription_extension_price of the first variant of a product, as a number. */
+export async function getFirstVariantExtensionPrice(hub: Database, companyId: string, productId: string) {
+  const variants = await findVariantsOfProduct(hub, companyId, productId);
+  return Number(variants[0].subscription_extension_price);
 }

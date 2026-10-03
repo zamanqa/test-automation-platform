@@ -1,4 +1,4 @@
-import type { APIRequestContext, APIResponse } from '@playwright/test';
+import type { APIResponse } from '@playwright/test';
 import { env } from '@config/env';
 import { BaseApiClient, type HttpMethod, type RequestOptions } from '../BaseApiClient';
 import { OrdersEndpoint } from './endpoints/orders';
@@ -18,24 +18,16 @@ import { CssEndpoint } from './endpoints/css';
 import { NotesEndpoint } from './endpoints/notes';
 import { DebtistEndpoint } from './endpoints/debtist';
 
-/**
- * Unified Customer API (2026-04).
- *
- * Auth: POST /auth/login with consumer_key + consumer_secret returns a JWT and the
- * company_id. The token is cached per worker and renewed a minute before it expires.
- *
- * URL patterns:
- *   company endpoints → {base}/{version}/{companyId}{path}   (most endpoints, incl. /debtist/)
- *   css endpoints     → {base}/{version}{path}               (path starts with /css/)
- */
+// Unified Customer API (version 2026-04).
+// Login: POST /auth/login with consumer key + secret → token and company_id.
+// The token is kept and renewed one minute before it expires.
+// URLs: most endpoints {base}/{version}/{companyId}{path}, css endpoints {base}/{version}{path}
 export class UnifiedApiClient extends BaseApiClient {
-  // Login state, filled by ensureToken() on the first request and reused afterwards.
   private token?: string;
   private tokenExpiresAt = 0;
-  private _companyId?: string;
+  private loggedInCompanyId?: string;
 
-  // Endpoint groups. Each gets `this` (the client) in its constructor so it can call
-  // this.company(...) / this.cssRequest(...). Tests use them as unifiedApi.orders.list() etc.
+  // used in tests as unifiedApi.orders.list() etc.
   readonly orders = new OrdersEndpoint(this);
   readonly customers = new CustomersEndpoint(this);
   readonly invoices = new InvoicesEndpoint(this);
@@ -53,27 +45,18 @@ export class UnifiedApiClient extends BaseApiClient {
   readonly notes = new NotesEndpoint(this);
   readonly debtist = new DebtistEndpoint(this);
 
-  /** Created by the `unifiedApi` fixture; `super(request)` hands the HTTP client to BaseApiClient. */
-  constructor(request: APIRequestContext) {
-    super(request);
-  }
-
   private get root(): string {
-    const { UNIFIED_API_BASE_URL, UNIFIED_API_VERSION } = env.unifiedApi;
-    return `${UNIFIED_API_BASE_URL.replace(/\/$/, '')}/${UNIFIED_API_VERSION}`;
+    return `${env.unifiedApi.UNIFIED_API_BASE_URL.replace(/\/$/, '')}/${env.unifiedApi.UNIFIED_API_VERSION}`;
   }
 
-  /** The company the consumer key belongs to (known after login). */
+  /** The company of the consumer key (known after login) */
   async companyId(): Promise<string> {
-    await this.ensureToken();
-    return this._companyId!;
+    await this.getToken();
+    return this.loggedInCompanyId as string;
   }
 
-  /**
-   * Logs in only when there is no token or it is about to expire.
-   * Called by authHeaders() (i.e. before every request) and by companyId().
-   */
-  private async ensureToken(): Promise<string> {
+  // Logs in only when there is no token yet or it expires within a minute
+  private async getToken(): Promise<string> {
     if (this.token && Date.now() < this.tokenExpiresAt - 60_000) return this.token;
 
     const response = await this.request.post(`${this.root}/auth/login`, {
@@ -86,31 +69,32 @@ export class UnifiedApiClient extends BaseApiClient {
     if (!response.ok()) {
       throw new Error(`Unified API login failed: ${response.status()} ${await response.text()}`);
     }
+
     const body = await response.json();
     this.token = body.token as string;
-    this._companyId = String(body.company_id);
-    this.tokenExpiresAt = jwtExpiry(this.token);
+    this.loggedInCompanyId = String(body.company_id);
+    this.tokenExpiresAt = tokenExpiry(this.token);
     return this.token;
   }
 
-  /** Required by BaseApiClient; BaseApiClient.send() calls this for every request. */
   protected async authHeaders() {
-    return { Authorization: `Bearer ${await this.ensureToken()}` };
+    return { Authorization: `Bearer ${await this.getToken()}` };
   }
 
-  /** {base}/{version}/{companyId}{path} — used by every endpoint group except css/deliveries. */
+  /** {base}/{version}/{companyId}{path} */
   async company(method: HttpMethod, path: string, options?: RequestOptions): Promise<APIResponse> {
-    return this.send(method, `${this.root}/${await this.companyId()}${path}`, options);
+    const companyId = await this.companyId();
+    return this.send(method, `${this.root}/${companyId}${path}`, options);
   }
 
-  /** {base}/{version}{path} — for /css/ endpoints */
+  /** {base}/{version}{path} - for the /css/ endpoints */
   async cssRequest(method: HttpMethod, path: string, options?: RequestOptions): Promise<APIResponse> {
     return this.send(method, `${this.root}${path}`, options);
   }
 }
 
-/** Expiry of a JWT in ms, from its `exp` claim; falls back to one hour. */
-function jwtExpiry(token: string): number {
+// Expiry time (ms) from the token's "exp" value. If it cannot be read: one hour from now.
+function tokenExpiry(token: string): number {
   try {
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
     return payload.exp * 1000;

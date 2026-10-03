@@ -4,22 +4,22 @@ import type { UnifiedApiClient } from '../UnifiedApiClient';
 export class DraftOrdersEndpoint {
   constructor(private readonly api: UnifiedApiClient) {}
 
-  /** GET {base}/{version}/{companyId}/draft-orders. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /draft-orders */
   list() {
     return this.api.company('GET', '/draft-orders');
   }
 
-  /** GET {base}/{version}/{companyId}/draft-orders/{id} — params: id: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /draft-orders/{id} */
   get(id: string) {
     return this.api.company('GET', `/draft-orders/${id}`);
   }
 
-  /** POST {base}/{version}/{companyId}/draft-orders — params: body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /draft-orders */
   create(body: unknown) {
     return this.api.company('POST', '/draft-orders', { data: body });
   }
 
-  /** DELETE {base}/{version}/{companyId}/draft-orders/{id} — params: id: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** DELETE /draft-orders/{id} */
   delete(id: string) {
     return this.api.company('DELETE', `/draft-orders/${id}`);
   }

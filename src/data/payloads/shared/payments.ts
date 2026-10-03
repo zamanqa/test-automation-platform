@@ -1,7 +1,3 @@
-// USED BY (files that import this one):
-//   tests/customer-api/payments/payments.spec.ts
-//   tests/unified-api/payments/payments.spec.ts
-
 /** Request bodies for /one-time-payments. Same for both APIs. Values from unified-customer-api paymentPayloads.js. */
 
 /** 20.00 in two 10.00 lines at 19% tax. */

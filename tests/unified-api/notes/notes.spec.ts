@@ -1,15 +1,11 @@
-// test, expect      ← src/fixtures/index.ts
-// findLatestNoteOn  ← src/db/queries/hub/notes.ts
 import { test, expect } from '@fixtures';
 import { findLatestNoteOn } from '@db/queries/hub/notes';
 
-/**
- * WHAT:   Unified Customer API — /notes and its filters (read only).
- * FROM:   unified-customer-api cypress/e2e/customer-api/15-notes/notes.cy.js (5 tests).
- * NEEDS:  notes attached to an order (with customer) and to a subscription.   CHANGES DATA: no.
- */
+// Unified API - /notes and its filters (read only).
+// Needs: notes attached to an order (with customer) and to a subscription.
+// Changes data: no.
 
-/** Some filters return a bare array, others { data: [...] } — this returns the list either way. */
+// some filters return a plain list, others { data: [...] }
 async function notesIn(response: { json(): Promise<unknown> }) {
   const body = (await response.json()) as unknown[] | { data: unknown[] };
   return Array.isArray(body) ? body : body.data;
@@ -26,7 +22,7 @@ test.describe('Unified API - notes', () => {
   });
 
   test('fetches a note by id', async ({ unifiedApi, db }) => {
-    // SETUP: newest note that belongs to an order ← hub db
+    // SETUP: newest note that belongs to an order
     const note = await findLatestNoteOn(db.hub, await unifiedApi.companyId(), 'order_id');
 
     // ACTION: GET /notes/{id}
@@ -41,7 +37,7 @@ test.describe('Unified API - notes', () => {
     // SETUP
     const note = await findLatestNoteOn(db.hub, await unifiedApi.companyId(), 'order_id');
 
-    // ACTION: GET /notes?order_id=...   (order_id ← the note row)
+    // ACTION: GET /notes?order_id=...
     const response = await unifiedApi.notes.list({ order_id: note.order_id! });
 
     // CHECK: at least that note comes back

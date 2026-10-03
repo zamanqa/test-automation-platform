@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 export type OrderItem = {
-  /** Product title to pick ← findProductForOrderItem() (has a variant, never qa_auto test data). */
+  /** Product title to pick (from findProductForOrderItem) */
   product: string;
   /** Subscription type to pick; omitted = the first option in the list. */
   type?: string;
@@ -25,19 +25,15 @@ export type BillingAddress = {
   country: string;
 };
 
-/**
- * Hub → Create order / Create quote. Selectors carried over from hub-e2e-automation
- * OrderCreationPage.js. Form fields are found by their label (case-sensitive, like cy.contains).
- */
+/** Hub → Create order / Create quote. Form fields are found by their label (case-sensitive). */
 export class OrderCreationPage {
   readonly submitButton: Locator;
 
-  /** Created per test by the fixture of the same name (src/fixtures/index.ts); `page` = Playwright's browser tab. */
   constructor(private readonly page: Page) {
     this.submitButton = page.locator('button[type="submit"][data-cy="btn-submit"]');
   }
 
-  /** The nearest div around a label, like cy.get('label').contains(text).closest('div'). */
+  /** The nearest div around a label. */
   private field(label: string): Locator {
     return this.page.locator('label', { hasText: new RegExp(label) }).first().locator('xpath=ancestor::div[1]');
   }
@@ -55,11 +51,7 @@ export class OrderCreationPage {
     await expect(this.page.locator('p', { hasText: title }).first()).toBeVisible();
   }
 
-  /**
-   * Adds one monthly subscription item for the given product and its first variant.
-   * item ← tests/hub-e2e/orders/create-order.spec.ts ({ product, price, quantity, duration }
-   *        + optional type 'consumable' / 'digital'; no type = first type in the list).
-   */
+  /** Adds one monthly subscription item for the product and its first variant. No type = first type in the list. */
   async addItem(item: OrderItem) {
     // 1. open the "Add item" dialog (the button above the item list)
     await this.page.locator('button[data-cy="btn-order-item-open-create"]').click();
@@ -95,7 +87,7 @@ export class OrderCreationPage {
     await this.textInput('Start date').click();
     await this.page.locator('button', { hasText: 'Select' }).first().click();
 
-    // 8. variant = first in the list — chosen LAST: changing other fields can clear it.
+    // 8. variant = first in the list - chosen LAST: changing other fields can clear it.
     //    Its list loads after the product was chosen → retry until the variant box shows a value.
     const variantInput = this.field('Select variant').getByRole('combobox');
     await expect(async () => {
@@ -145,12 +137,12 @@ export class OrderCreationPage {
   /** Submits and returns the new order id from the URL (/cms/orders/{id}). */
   async submitOrder(): Promise<string> {
     await this.page.locator('button[data-cy="btn-submit"]', { hasText: 'Create order' }).click();
-    // order ids are numbers — the form's own URL (/cms/orders/create) must not count
+    // order ids are numbers - the form's own URL (/cms/orders/create) must not count
     await expect(this.page, 'URL of the new order').toHaveURL(/\/cms\/orders\/\d+$/, { timeout: 30_000 });
     return this.page.url().split('/cms/orders/')[1];
   }
 
-  // ---------- "Edit order" form (/orders/{id}/edit — same form as Create order) ----------
+  // ---------- "Edit order" form (/orders/{id}/edit - same form as Create order) ----------
 
   /** Item list → edit button of the first item → new quantity → submit the item dialog. */
   async changeFirstItemQuantity(quantity: string) {
@@ -184,7 +176,7 @@ export class OrderCreationPage {
   /** Submits and returns the new draft id from the URL (/cms/orders/drafts/{id}). */
   async submitQuote(): Promise<string> {
     await this.page.locator('button[data-cy="btn-submit"]', { hasText: 'Create quote' }).click();
-    // quote ids look like quote_12345678 — the form's own URL (/drafts/create) must not count
+    // quote ids look like quote_12345678 - the form's own URL (/drafts/create) must not count
     await expect(this.page, 'URL of the new quote').toHaveURL(/\/cms\/orders\/drafts\/quote_[^/]+$/, { timeout: 30_000 });
     return this.page.url().split('/cms/orders/drafts/')[1];
   }

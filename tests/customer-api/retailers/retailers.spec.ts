@@ -1,15 +1,9 @@
-// test, expect                 ← src/fixtures/index.ts
-// create/updateRetailerPayload ← src/data/payloads/shared/retailers.ts
-// find...Retailer...           ← src/db/queries/hub/retailers.ts
 import { test, expect } from '@fixtures';
 import { createRetailerPayload, updateRetailerPayload } from '@data/payloads/shared/retailers';
 import { findLatestRetailer, findRetailer, findRetailerByLocation } from '@db/queries/hub/retailers';
 
-/**
- * WHAT:   OLD Customer API — /retailers.
- * FROM:   cus-api cypress/e2e/customer-api/12-retailers/retailers.cy.js (4 tests → 3).
- * CHANGES DATA: yes — creates and updates a retailer.
- */
+// Customer API - /retailers.
+// Changes data: creates and updates a retailer.
 test.describe('Customer API - retailers', () => {
   test('returns a list of retailers', async ({ customerApi }) => {
     // ACTION: GET /retailers
@@ -21,7 +15,7 @@ test.describe('Customer API - retailers', () => {
   });
 
   test('fetches a retailer by location id', async ({ customerApi, db }) => {
-    // SETUP: newest retailer ← hub db
+    // SETUP: newest retailer
     const retailer = await findLatestRetailer(db.hub, customerApi.companyId);
 
     // ACTION: GET /retailers/{location_id}
@@ -33,9 +27,8 @@ test.describe('Customer API - retailers', () => {
     expect(await findRetailerByLocation(db.hub, customerApi.companyId, retailer.location_id)).toBeDefined();
   });
 
-  // Was tests 3-4 in Cypress, which passed the new id between tests through Cypress.env.
   test('creates a retailer and updates it', async ({ customerApi, db }) => {
-    // Step "create": POST /retailers → new id ← API response
+    // Step "create": POST /retailers → new id
     const retailerId = await test.step('create', async () => {
       const response = await customerApi.retailers.create(createRetailerPayload());
       expect([200, 201]).toContain(response.status());

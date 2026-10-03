@@ -1,6 +1,3 @@
-// USED BY (files that import this one):
-//   tests/customer-api/subscriptions/subscriptions.spec.ts
-
 /** Request bodies for /subscriptions on the Customer API. Values from cus-api subscriptionPayloads.js. */
 
 type Item = { item_id: string; order_id: string; order_item_id: string; sku: string };
@@ -28,7 +25,7 @@ export function bundleSubscriptionPayload(item: Item, subscriptionStart: string)
     order_id: item.order_id,
     id: item.order_item_id,
     product_id: item.sku,
-    // random serial: the API answers 422 "Serial number is null/empty" without one (also with bundle_data; 2026-09-29)
+    // without a serial number the API answers 422
     serial_number: `serial-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     status: 'active',
     bundle_id: null,
@@ -37,7 +34,7 @@ export function bundleSubscriptionPayload(item: Item, subscriptionStart: string)
   };
 }
 
-/** POST /subscriptions/{id}/notes body (fixed text from the Cypress test). */
+/** POST /subscriptions/{id}/notes body */
 export function subscriptionNotePayload() {
   return { author: 'amine', message: 'test', description: 'test', serial_number: 'na', pinned: false, include_order_id: false };
 }

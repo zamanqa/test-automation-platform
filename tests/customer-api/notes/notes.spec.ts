@@ -1,15 +1,10 @@
-// test, expect      ← src/fixtures/index.ts
-// findLatestNoteOn  ← src/db/queries/hub/notes.ts
 import { test, expect } from '@fixtures';
 import { findLatestNoteOn } from '@db/queries/hub/notes';
 
-/**
- * WHAT:   OLD Customer API — /notes and its filters (read only).
- * FROM:   cus-api cypress/e2e/customer-api/15-notes/notes.cy.js (5 tests).
- * CHANGES DATA: no.
- */
+// Customer API - /notes and its filters (read only).
+// Changes data: no.
 
-/** Some filters return a bare array, others { data: [...] } — this returns the list either way. */
+// some filters return a plain list, others { data: [...] }
 async function notesIn(response: { json(): Promise<unknown> }) {
   const body = (await response.json()) as unknown[] | { data: unknown[] };
   return Array.isArray(body) ? body : body.data;
@@ -26,7 +21,7 @@ test.describe('Customer API - notes', () => {
   });
 
   test('fetches a note by id', async ({ customerApi, db }) => {
-    // SETUP: newest note on an order ← hub db (companyId ← .env)
+    // SETUP: newest note on an order
     const note = await findLatestNoteOn(db.hub, customerApi.companyId, 'order_id');
 
     // ACTION: GET /notes/{id}

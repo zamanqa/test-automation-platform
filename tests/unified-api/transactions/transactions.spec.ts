@@ -1,13 +1,9 @@
-// test, expect  ← src/fixtures/index.ts
-// find...       ← src/db/queries/hub/transactions.ts
 import { test, expect } from '@fixtures';
 import { findLatestTransaction, findTransaction } from '@db/queries/hub/transactions';
 
-/**
- * WHAT:   Unified Customer API — /transactions (read only).
- * FROM:   unified-customer-api cypress/e2e/customer-api/08-transactions/transactions.cy.js (2 tests).
- * NEEDS:  at least one transaction.   CHANGES DATA: no.
- */
+// Unified API - /transactions (read only).
+// Needs: at least one transaction.
+// Changes data: no.
 test.describe('Unified API - transactions', () => {
   test('returns a list of transactions', async ({ unifiedApi }) => {
     // ACTION: GET /transactions
@@ -19,7 +15,7 @@ test.describe('Unified API - transactions', () => {
   });
 
   test('fetches a transaction by id', async ({ unifiedApi, db }) => {
-    // SETUP: newest transaction of the company ← hub db
+    // SETUP: newest transaction of the company
     const companyId = await unifiedApi.companyId();
     const transaction = await findLatestTransaction(db.hub, companyId);
 

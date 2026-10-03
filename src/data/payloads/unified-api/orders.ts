@@ -1,21 +1,7 @@
 import { testEmail } from '@data/random';
 
-// USED BY (files that import this one):
-//   tests/unified-api/orders/orders.spec.ts
-
-/**
- * Request bodies for the Unified API /orders endpoints.
- * Values carried over from unified-customer-api/cypress/support/customer-api/orders/orderPayloads.js;
- * only the email is now generated (with the test prefix) instead of hardcoded.
- *
- * WHERE THE VALUES COME FROM:
- *   email                       ← testEmail() in src/data/random.ts → "qa_auto_<10 random>@gmail.com"
- *   product_id / variant_id / sku / shop_variant_id
- *                               ← fixed ids of two products in the dev company (copied from Cypress).
- *                                 If those products are deleted on dev, this payload must be updated.
- *   address, prices, dates      ← fixed test data (copied from Cypress)
- *   charge_by_invoice           ← the function argument (default true)
- */
+// Bodies for the Unified API /orders endpoints.
+// The products are fixed ids on dev; if they are deleted there, update them here.
 
 const germanAddress = {
   address_addition: '',
@@ -47,8 +33,8 @@ const subscriptionItemDefaults = {
   voucher_code: null,
 };
 
-/** POST /orders/full body: 2 subscription items, German address, random qa_auto_ email.
- * chargeByInvoice: true (default) = pay by invoice; false = charge the card later. */
+// POST /orders/full body: 2 subscription items, German address, random qa_auto_ email.
+// chargeByInvoice true = pay by invoice, false = charge the card later.
 export function createOrderPayload({ chargeByInvoice = true } = {}) {
   return {
     remarks: '',

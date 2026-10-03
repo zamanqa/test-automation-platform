@@ -1,13 +1,12 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/** Hub → Invoices list and invoice detail. Selectors carried over from hub-e2e-automation InvoiceListPage.js. */
+/** Hub → Invoices list and invoice page. */
 export class InvoiceListPage {
   readonly searchInput: Locator;
   readonly rows: Locator;
   readonly paginationText: Locator;
   readonly successMessage: Locator;
 
-  /** Created per test by the fixture of the same name (src/fixtures/index.ts); `page` = Playwright's browser tab. */
   constructor(private readonly page: Page) {
     this.searchInput = page.locator('.w-64 input[placeholder="Search..."]');
     this.rows = page.locator('tbody tr');
@@ -47,7 +46,7 @@ export class InvoiceListPage {
   }
 
   // ---------- filters ----------
-  // The Cypress page object used these generated headlessui ids; kept as-is.
+  // generated headlessui ids, may break when the hub UI changes
 
   async filterByType(type: string) {
     await this.page.locator('#headlessui-listbox-button-v-0-2-3').click();
@@ -86,7 +85,7 @@ export class InvoiceListPage {
   async cancelAndRegenerate() {
     await this.page.locator('button', { hasText: 'Cancel invoice' }).click();
     await expect(this.page).toHaveURL(/\/cancel/);
-    // wait for the invoice preview (iframe): its HTML is sent with the cancel — too early = "The html field is required."
+    // wait for the invoice preview (iframe): its HTML is sent with the cancel - too early = "The html field is required."
     await expect(this.page.frameLocator('iframe').first().locator('body'), 'invoice preview on the cancel page').not.toBeEmpty({ timeout: 30_000 });
     await this.page.locator('span', { hasText: 'Cancel invoice' }).click();
     await this.page.getByText('Yes, I also want to generate a new invoice with updated information.').click();

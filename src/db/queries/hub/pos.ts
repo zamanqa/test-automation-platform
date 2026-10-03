@@ -1,11 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/pos-e2e/login.spec.ts
-//   tests/pos-e2e/orders.spec.ts
-//   tests/pos-e2e/create-order.spec.ts
-//   tests/pos-e2e/subscriptions.spec.ts
-
 /**
  * Queries for the POS portal (StoreConnect). The POS login is a row in `retailers`
  * (location_id = POS_LOCATION_ID). A POS order is a quote: draft_orders.draft_id = 'quote_…',
@@ -65,6 +59,12 @@ export function findDraftOrder(hub: Database, draftId: string) {
   );
 }
 
+/** Status of a POS quote, or undefined. */
+export async function getDraftOrderStatus(hub: Database, draftId: string) {
+  const row = await findDraftOrder(hub, draftId);
+  return row?.status;
+}
+
 /** Items of a quote (draft_items). */
 export function findDraftItems(hub: Database, draftId: string) {
   return hub.query<{ sku: string; name: string; quantity: number; price: string }>(
@@ -85,7 +85,7 @@ export function findOrderCustomer(hub: Database, orderCustomerId: number) {
 export type PosProductRow = { product_name: string; variant_name: string; sku: string };
 
 /**
- * A product the POS can sell, with one of its variants — names as the POS shows them (English
+ * A product the POS can sell, with one of its variants - names as the POS shows them (English
  * translation if there is one). Product and variant active + orderable, variant in stock and with
  * sku + name, nothing starting with qa_auto, and the product has 2+ such variants (so the
  * "Variant" step of Add item is shown). Throws if none.
@@ -125,6 +125,12 @@ export function findSubscriptionBySerial(hub: Database, serialNumber: string) {
     'SELECT subscription_id, order_id, status FROM public.subscriptions WHERE serial_number = $1',
     [serialNumber],
   );
+}
+
+/** order_id of the subscription with this serial number, or undefined. */
+export async function getOrderIdOfSerial(hub: Database, serialNumber: string) {
+  const row = await findSubscriptionBySerial(hub, serialNumber);
+  return row?.order_id;
 }
 
 /** Number of quotes in the Order list with this status ('open', 'completed' ...), as the Status filter shows them. */

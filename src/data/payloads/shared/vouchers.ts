@@ -1,10 +1,6 @@
 import { testName } from '@data/random';
 
-// USED BY (files that import this one):
-//   tests/customer-api/vouchers/vouchers.spec.ts
-//   tests/unified-api/vouchers/vouchers.spec.ts
-
-/** Request bodies for /vouchers. Same for both APIs. Values from unified-customer-api vouchers.cy.js. */
+/** Request bodies for /vouchers. Same for both APIs. */
 
 /** 20 EUR recurring one-time-use voucher valid until 2044. */
 export function createVoucherPayload() {

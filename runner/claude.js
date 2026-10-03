@@ -1,19 +1,9 @@
-/**
- * "Ask Claude" in the test runner — Claude Code (the `claude` CLI, logged in with the owner's Claude account)
- * looks at a failed test and proposes a fix; the fix is applied only after a click.
- *
- * STEPS (one job at a time)
- *   1. suggest(test): `claude -p` may only READ files (Read, Grep, Glob). It gets the test, its file:line and the newest
- *      report folder (error-context.md = the page at the failure). It answers: cause, fix (small diff), how sure.
- *   2. apply():       continues the same Claude session (--resume) and may now EDIT files (no commands, no tests,
- *      no database). Before that, src/, tests/ and playwright.config.ts are copied to reports/.claude-backup/
- *      → the changed files are listed afterwards, and "Undo" copies the old versions back.
- *   3. The server then queues a rerun of that one test (see server.js).
- *
- * Claude reads CLAUDE.md itself (it runs in the project folder), so the project rules apply (simple code for a QA,
- * never qa_auto data, crons stay on, ...). The output is streamed to the page as it comes (stream-json).
- * Used by runner/server.js.
- */
+// "Ask Claude" button of the test runner: the claude CLI looks at a failed test and proposes a fix.
+// 1. suggest(): may only read files; answers with the cause, a small fix and how sure it is
+// 2. apply(): same session, may now edit files. src/, tests/ and playwright.config.ts are backed up
+//    to reports/.claude-backup first, so "Undo" can put the old files back.
+// 3. server.js then reruns that one test.
+// It runs in the project folder, so it follows CLAUDE.md.
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');

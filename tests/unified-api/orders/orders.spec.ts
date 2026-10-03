@@ -1,11 +1,3 @@
-// ─── Imports: where every name used below comes from ─────────────────────────────
-// test, expect         ← src/fixtures/index.ts (Playwright's test + our fixtures: db, unifiedApi, cleanup ...)
-// env                  ← src/config/env.ts (reads .env; env.checkout.CHECKOUT_API_URL etc.)
-// wakeUp               ← src/api/health-check.ts (pings a URL until the server answers)
-// createOrderPayload   ← src/data/payloads/unified-api/orders.ts (request body for "create order")
-// updateAddressPayload ← src/data/payloads/shared/orders.ts (request body for "update address")
-// find... / getOrderStatus / OrderRow ← src/db/queries/hub/orders.ts (SQL on the hub database)
-// crons helpers        ← src/db/queries/hub/crons.ts (switch hub cron jobs on/off)
 import { test, expect } from '@fixtures';
 import { env } from '@config/env';
 import { wakeUp } from '@api/health-check';
@@ -19,103 +11,76 @@ import {
 } from '@db/queries/hub/orders';
 import { deleteStaleJobs, disableAllCrons, enableCrons, resetAllCrons, QUEUE_WORKER_COMMAND } from '@db/queries/hub/crons';
 
-/**
- * WHAT:   Unified Customer API (2026-04) — /orders endpoints.
- * FROM:   unified-customer-api cypress/e2e/customer-api/01-orders/orders.cy.js (all 12 tests).
- * NEEDS:  an open, visa-paid checkout order without subscription in the hub database.
- * CHANGES DATA: yes — creates orders, fulfils/cancels/tags/updates the picked order,
- *         and switches ALL hub crons off during the fulfil test (reset afterwards).
- *
- * Tests in this file run one after another: several of them pick "the latest open
- * order" and change its status, so running them in parallel would make two tests
- * act on the same order. 'default' mode keeps them in order without skipping the
- * rest when one fails (unlike 'serial').
- *
- * READING GUIDE — this file is the annotated example; every spec is built the same way:
- *   imports           test/expect from @fixtures (src/fixtures/index.ts), plus payloads
- *                     (src/data/payloads/...) and query helpers (src/db/queries/...).
- *   async ({ db, unifiedApi, cleanup })
- *                     = the fixtures this test asks for; Playwright creates them first.
- *   unifiedApi.orders.cancel(id)
- *                     → OrdersEndpoint → UnifiedApiClient.company() → BaseApiClient.send()
- *   getOrderStatus(db.hub, id)
- *                     → src/db/queries/hub/orders.ts → Database.maybeOne() on the hub database
- *   cleanup.add(...)  = undo step, runs after the test even if it fails (src/db/cleanup.ts)
- *
- * Comment labels used in every test:
- *   SETUP  = prepare data / state      ACTION = the call being tested      CHECK = assertions
- *   ← from: where a value comes from
- */
+// Unified API - /orders endpoints.
+// Needs: an open checkout order paid by visa, without a subscription.
+// Changes data: creates, fulfils, cancels, tags and updates orders.
+// The fulfil test switches all hub crons off and turns them back on afterwards.
+
+// Tests run in order: several of them change "the latest open order".
 test.describe.configure({ mode: 'default' });
 
 test.describe('Unified API - orders', () => {
-  // Filled by beforeEach below, read by the tests. Type OrderRow ← src/db/queries/hub/orders.ts
   let dbOrder: OrderRow;
 
-  // Runs ONCE before the first test of this file: wakes the checkout API (Cloud Run / Heroku
-  // servers sleep when idle). `playwright` = Playwright's built-in object; newContext() gives a
-  // stand-alone HTTP client, disposed right after.
+  // The checkout API sleeps when idle, wake it up first
   test.beforeAll(async ({ playwright }) => {
     const request = await playwright.request.newContext();
-    await wakeUp(request, env.checkout.CHECKOUT_API_URL); // ← from .env: CHECKOUT_API_URL
+    await wakeUp(request, env.checkout.CHECKOUT_API_URL);
     await request.dispose();
   });
 
-  // Runs before EACH test: picks the order to act on from the hub database.
-  // db.hub                  ← `db` fixture → the hub Postgres (HUB_DB_* in .env)
-  // unifiedApi.companyId()  ← the company returned by the Unified API login (consumer key in .env)
   test.beforeEach(async ({ db, unifiedApi }) => {
-    dbOrder = await findOpenCheckoutOrderWithoutSubscription(db.hub, await unifiedApi.companyId());
+    const companyId = await unifiedApi.companyId();
+    dbOrder = await findOpenCheckoutOrderWithoutSubscription(db.hub, companyId);
   });
 
   test('returns a paginated list of orders', async ({ unifiedApi }) => {
-    // ACTION: GET /orders
+    // ACTION
     const response = await unifiedApi.orders.list();
 
-    // CHECK: HTTP 200 and at least one order in `data`  (response.json() = the API's JSON body)
+    // CHECK
     expect(response.status()).toBe(200);
     expect((await response.json()).data.length).toBeGreaterThan(0);
   });
 
   test('finds an order from the database by id', async ({ unifiedApi }) => {
-    // ACTION: GET /orders/{id}   id ← dbOrder, picked from the database in beforeEach
+    // ACTION
     const response = await unifiedApi.orders.get(dbOrder.order_id);
 
-    // CHECK: the API knows the order the database has
+    // CHECK
     expect(response.status()).toBe(200);
   });
 
   test('creates an order and stores it in the database', async ({ unifiedApi, db }) => {
-    // ACTION: POST /orders/full with the body built by createOrderPayload()
-    //         (2 subscription items, random qa_auto_ email ← src/data/random.ts)
+    // ACTION: order with 2 subscription items and a random qa_auto_ email
     const response = await unifiedApi.orders.createFull(createOrderPayload());
-    const { order_id } = await response.json(); // ← the new order's id, from the API response
+    const { order_id } = await response.json();
 
-    // CHECK: the new order exists in the hub `orders` table
+    // CHECK: the order is in the hub database
     expect(await findOrder(db.hub, order_id)).toBeDefined();
   });
 
   test('returns a payment update link', async ({ unifiedApi }) => {
-    // ACTION: GET /orders/{id}/payment-update-link
+    // ACTION
     const response = await unifiedApi.orders.paymentUpdateLink(dbOrder.order_id);
 
-    // CHECK: 200 and `link` is a non-empty string
+    // CHECK: link is a non-empty text
     expect(response.status()).toBe(200);
     expect((await response.json()).link).toEqual(expect.any(String));
     expect((await response.json()).link).not.toBe('');
   });
 
   test('returns payment details with provider stripe', async ({ unifiedApi }) => {
-    // ACTION: GET /orders/{id}/payment-details
+    // ACTION
     const response = await unifiedApi.orders.paymentDetails(dbOrder.order_id);
 
-    // CHECK: the order was paid via Stripe (the picked order is a visa checkout order)
+    // CHECK
     expect(response.status()).toBe(200);
     expect(await response.json()).toHaveProperty('payment_provider', 'stripe');
   });
 
   test('adds a note to an order', async ({ unifiedApi }) => {
-    // ACTION: POST /orders/{id}/notes — note text is fixed test data (same as in Cypress)
+    // ACTION
     const response = await unifiedApi.orders.addNote(dbOrder.order_id, {
       author: 'amine',
       message: 'test',
@@ -123,46 +88,43 @@ test.describe('Unified API - orders', () => {
       pinned: false,
     });
 
-    // CHECK: 201 Created + success flag
+    // CHECK
     expect(response.status()).toBe(201);
     expect(await response.json()).toHaveProperty('success', true);
   });
 
   test('fulfills an order through the queue', async ({ unifiedApi, db, cleanup }) => {
-    // This test waits for a background job, so it gets 3 minutes instead of the default 60s.
-    test.setTimeout(180_000);
+    test.setTimeout(180_000); // waits for a background job
 
-    // SETUP: only the queue worker may run, so nothing else picks up the order meanwhile.
-    await deleteStaleJobs(db.hub, 'customers_api');          // clear old unprocessed jobs of that queue
-    await disableAllCrons(db.hub);                           // ALL hub crons off (global!)
-    cleanup.add('reset crons', () => resetAllCrons(db.hub)); // undo — runs even if the test fails
-    await enableCrons(db.hub, [QUEUE_WORKER_COMMAND]);       // turn on just the queue worker
-    //                                    ↑ command text ← src/db/queries/hub/crons.ts
+    // SETUP: only the queue worker may run, so nothing else touches the order
+    await deleteStaleJobs(db.hub, 'customers_api');
+    await disableAllCrons(db.hub);
+    cleanup.add('reset crons', () => resetAllCrons(db.hub));
+    await enableCrons(db.hub, [QUEUE_WORKER_COMMAND]);
 
-    // ACTION: POST /orders/fulfill → the API queues a background fulfil job
+    // ACTION: the API queues a fulfil job
     const response = await unifiedApi.orders.fulfill([dbOrder.order_id]);
     expect(response.status()).toBe(200);
     expect(await response.json()).toHaveProperty('message', '1:orders meet fulfillment criteria, process started.');
 
-    // CHECK: ask the database every 5s (max 150s) until the job set the status to 'fulfilled'.
-    // Was a fixed cy.wait(90000); now finishes as soon as the status changes.
+    // CHECK: check the database every 5 s (max 150 s) until the order is fulfilled
     await expect
       .poll(() => getOrderStatus(db.hub, dbOrder.order_id), { timeout: 150_000, intervals: [5_000] })
       .toBe('fulfilled');
   });
 
   test('cancels an order', async ({ unifiedApi, db }) => {
-    // ACTION: POST /orders/{id}/cancel
+    // ACTION
     const response = await unifiedApi.orders.cancel(dbOrder.order_id);
 
-    // CHECK: exact response body, then the status stored in the database
+    // CHECK
     expect(response.status()).toBe(200);
     expect(await response.json()).toEqual({ success: true, message: 'Cancelled' });
     expect(await getOrderStatus(db.hub, dbOrder.order_id)).toBe('cancelled');
   });
 
   test('tags an order', async ({ unifiedApi }) => {
-    // ACTION: PUT /orders/{id} with a tag — tag values are fixed test data (from Cypress)
+    // ACTION
     const response = await unifiedApi.orders.update(dbOrder.order_id, { tag: 'deliveried', tag_date: '2027-03-13' });
 
     // CHECK
@@ -170,33 +132,33 @@ test.describe('Unified API - orders', () => {
   });
 
   test('creates an order and charges it', async ({ unifiedApi }) => {
-    // SETUP: create a fresh order that is NOT paid by invoice (so it can be charged)
+    // SETUP: new order that is not paid by invoice, so it can be charged
     const created = await unifiedApi.orders.createFull(createOrderPayload({ chargeByInvoice: false }));
     expect([200, 201]).toContain(created.status());
-    const body = await created.json(); // ← body.order_id = id of the order just created
+    const body = await created.json();
     expect(body).toHaveProperty('success', true);
     expect(body).toHaveProperty('order_id');
 
-    // ACTION + CHECK: POST /orders/{id}/charge on that new order
+    // ACTION + CHECK
     const charged = await unifiedApi.orders.charge(body.order_id);
     expect(charged.status()).toBe(200);
   });
 
   test('creates an order and generates its invoice', async ({ unifiedApi }) => {
-    // SETUP: create a fresh order (charge by invoice = true, the payload's default)
+    // SETUP: new order paid by invoice
     const created = await unifiedApi.orders.createFull(createOrderPayload());
     expect([200, 201]).toContain(created.status());
     const body = await created.json();
     expect(body).toHaveProperty('success', true);
     expect(body).toHaveProperty('order_id');
 
-    // ACTION + CHECK: POST /orders/{id}/generate-invoice
+    // ACTION + CHECK
     const invoice = await unifiedApi.orders.generateInvoice(body.order_id);
     expect([200, 201]).toContain(invoice.status());
   });
 
   test('updates the order address', async ({ unifiedApi }) => {
-    // ACTION: PUT /orders/{id}/address — new billing/shipping address ← updateAddressPayload()
+    // ACTION
     const response = await unifiedApi.orders.updateAddress(dbOrder.order_id, updateAddressPayload());
 
     // CHECK

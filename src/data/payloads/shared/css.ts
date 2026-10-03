@@ -1,10 +1,6 @@
 import dayjs from 'dayjs';
 
-// USED BY (files that import this one):
-//   tests/customer-api/css/css.spec.ts
-//   tests/unified-api/css/css.spec.ts
-
-/** Request bodies for the Customer Self Service (/css/api) endpoints. Same for both APIs. Values from unified-customer-api css.cy.js. */
+/** Request bodies for the customer self-service (/css/api) endpoints. Same for both APIs. */
 
 /** Customer the CSS actions are performed as (fixture testData.json → css.testEmail). */
 export const CSS_CUSTOMER_EMAIL = 'c.test2489@gmail.com';

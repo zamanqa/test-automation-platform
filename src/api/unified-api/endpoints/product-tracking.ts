@@ -4,12 +4,12 @@ import type { UnifiedApiClient } from '../UnifiedApiClient';
 export class ProductTrackingEndpoint {
   constructor(private readonly api: UnifiedApiClient) {}
 
-  /** GET {base}/{version}/{companyId}/product-tracking. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /product-tracking */
   list() {
     return this.api.company('GET', '/product-tracking');
   }
 
-  /** GET {base}/{version}/{companyId}/product-tracking/{serialNumber} — params: serialNumber: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /product-tracking/{serialNumber} */
   get(serialNumber: string) {
     return this.api.company('GET', `/product-tracking/${serialNumber}`);
   }
@@ -19,7 +19,7 @@ export class ProductTrackingEndpoint {
     return this.api.company('POST', `/product-tracking/${serialNumber}/repair`, { data: { delete_rps: deleteRecurringPayments } });
   }
 
-  /** POST {base}/{version}/{companyId}/product-tracking/{serialNumber}/stock — params: serialNumber: string, location = 'Berlin', doNotRestock = false. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /product-tracking/{serialNumber}/stock */
   stock(serialNumber: string, location = 'Berlin', doNotRestock = false) {
     return this.api.company('POST', `/product-tracking/${serialNumber}/stock`, {
       params: { do_not_restock: doNotRestock },

@@ -1,15 +1,15 @@
 import type { CustomerApiClient } from '../CustomerApiClient';
 
-/** /payments endpoints of the Customer API. */
+/** /payments endpoints. */
 export class PaymentsEndpoint {
   constructor(private readonly api: CustomerApiClient) {}
 
-  /** POST {base}/api/{version}/payments/one-time-payments — params: body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /payments/one-time-payments */
   createOneTimePayment(body: unknown) {
     return this.api.call('POST', '/payments/one-time-payments', { data: body });
   }
 
-  /** GET {base}/api/{version}/payments/refund-payments. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /payments/refund-payments */
   refundPayments() {
     return this.api.call('GET', '/payments/refund-payments');
   }

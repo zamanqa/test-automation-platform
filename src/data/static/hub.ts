@@ -1,8 +1,5 @@
 import type { BillingAddress } from '@pages/hub/OrderCreationPage';
 
-// USED BY (files that import this one):
-//   tests/hub-e2e/orders/create-order.spec.ts
-
 /** Static hub test data. From hub-e2e-automation cypress/fixtures/testData.json. */
 
 export const billingAddress: BillingAddress = {

@@ -1,12 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/css-e2e/02-outstanding-amount.spec.ts
-//   tests/customer-api/invoices/invoices.spec.ts
-//   tests/hub-e2e/cron/cron.spec.ts
-//   tests/hub-e2e/invoices/invoice-list.spec.ts
-//   tests/unified-api/invoices/invoices.spec.ts
-
 /** Queries on invoices (and the transactions they belong to). */
 
 export type InvoiceRow = { id: string; invoice_number: string; transaction_id: string; paid: boolean; type: string; amount: string };
@@ -91,10 +84,10 @@ export function findRefundableRecurringInvoice(hub: Database, companyId: string,
         AND o.status = 'open'
         AND o.origin = 'checkout'
         AND t.transaction_id NOT IN (SELECT refunded_transaction_id FROM public.transactions WHERE refunded_transaction_id IS NOT NULL)
-        -- not our own test payments (e.g. qa_auto_offline_1790670856107): they have no real payment to refund (owner, 2026-09-29)
+        -- not our own test payments (e.g. qa_auto_offline_1790670856107): they have no real payment to refund
         AND t.transaction_id NOT LIKE 'qa\\_auto%'
         -- Stripe only: a Stripe refund writes a refund transaction (refunded_transaction_id) → a refunded invoice drops out.
-        -- Other payments (e.g. "TR_…") are refunded without that row and would be picked again (2026-09-29).
+        -- Other payments (e.g. "TR_…") are refunded without that row and would be picked again.
         AND t.payment_service_provider = 'stripe'
         -- something was really paid (an invoice paid fully by account balance has amount 0 → "Refund invoice" disabled)
         AND i.amount > 0
@@ -126,7 +119,7 @@ export function findInvoicesByIds(hub: Database, ids: (string | number)[]) {
   );
 }
 
-/** Latest paid invoice with a number — can be downloaded as PDF. */
+/** Latest paid invoice with a number - can be downloaded as PDF. */
 export function findLatestPaidInvoice(hub: Database, companyId: string) {
   return hub.maybeOne<InvoiceRow>(
     `SELECT id, invoice_number, transaction_id, paid, "type", amount
@@ -187,7 +180,7 @@ export async function getRefundInvoiceAmount(hub: Database, originalTransactionI
 
 // ---------- hub invoice detail actions (tests/hub-e2e/invoices/invoice-actions.spec.ts) ----------
 
-/** Latest unpaid Circuly (TR_) invoice with no claim and not cancelled — "Mark as paid" / "Block auto-claim" work on it, or undefined. */
+/** Latest unpaid Circuly (TR_) invoice with no claim and not cancelled - "Mark as paid" / "Block auto-claim" work on it, or undefined. */
 export function findUnpaidInvoiceForActions(hub: Database, companyId: string) {
   return hub.maybeOne<{ id: string; invoice_number: string }>(
     `SELECT i.id, i.invoice_number
@@ -206,7 +199,7 @@ export function findUnpaidInvoiceForActions(hub: Database, companyId: string) {
   );
 }
 
-/** Latest unpaid invoice whose card payment (pi_) failed — "Charge invoice" is offered for it, or undefined. */
+/** Latest unpaid invoice whose card payment (pi_) failed - "Charge invoice" is offered for it, or undefined. */
 export function findFailedCardInvoice(hub: Database, companyId: string) {
   return hub.maybeOne<{ id: string; invoice_number: string; transaction_id: string }>(
     `SELECT i.id, i.invoice_number, i.transaction_id

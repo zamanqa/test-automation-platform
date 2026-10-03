@@ -3,14 +3,11 @@ import { addresses, carts, invalidVoucher, payments, vouchers } from '@data/stat
 import { findOrder } from '@db/queries/hub/orders';
 import type { CartSummary } from '@pages/checkout/CheckoutPage';
 
-/**
- * WHAT:   Checkout with the Shopify + Stripe shop.
- *         Orders: card, SEPA, invoice, voucher 12 + card.
- *         Read-only checks (no order): payment methods, country, invalid voucher, shipping method, language.
- * FROM:   Cypress checkout-e2e: shopify-stripe-{card,sepa,invoice}.cy.js. The other tests are new.
- * CHANGES DATA: yes — the order tests create test orders. The voucher, country and shipping tests change
- *         the shared test cart and put it back afterwards (cleanup).
- */
+// Checkout with the Shopify + Stripe shop.
+// Orders: card, SEPA, invoice, voucher 12 + card.
+// Read-only checks (no order): payment methods, country, invalid voucher, shipping method, language.
+// Changes data: the order tests create test orders. The voucher, country and shipping tests change
+// the shared test cart and put it back afterwards (cleanup).
 
 /** Checks that the cart summary adds up. */
 function checkSummaryAddsUp(summary: CartSummary) {

@@ -1,10 +1,6 @@
 import { testName } from '@data/random';
 
-// USED BY (files that import this one):
-//   tests/customer-api/retailers/retailers.spec.ts
-//   tests/unified-api/retailers/retailers.spec.ts
-
-/** Request bodies for /retailers. Same for both APIs. Values from unified-customer-api retailers.cy.js. */
+/** Request bodies for /retailers. Same for both APIs. */
 
 const address = { street: 'Hansaallee 139', postal_code: '60320', city: 'Frankfurt', country: 'Germany', alpha2: 'DE' };
 

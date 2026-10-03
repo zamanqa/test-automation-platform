@@ -1,5 +1,3 @@
-// test, expect  ← src/fixtures/index.ts
-// ...           ← src/db/queries/hub/debtist.ts (debtist_claims = debt-collection cases)
 import { test, expect } from '@fixtures';
 import {
   backdateInvoiceAsFailed,
@@ -9,15 +7,12 @@ import {
   firstInvoiceIdOf,
 } from '@db/queries/hub/debtist';
 
-/**
- * WHAT:   Unified Customer API — /debtist (debt collection).
- * FROM:   unified-customer-api cypress/e2e/customer-api/16-debtist/debtist.cy.js (5 tests).
- * NEEDS:  an existing claim; an unpaid invoice without claim.
- * CHANGES DATA: yes — backdates one invoice + transaction by 3 days, marks it failed,
- *         and files a debt-collection claim for it.
- */
+// Unified API - /debtist (debt collection).
+// Needs: an existing claim; an unpaid invoice without claim.
+// Changes data: backdates one invoice + transaction by 3 days, marks it failed,
+// and files a debt-collection claim for it.
 
-/** Some endpoints return a bare array, others { data: [...] } — this returns the list either way. */
+// some endpoints return a plain list, others { data: [...] }
 async function listIn(response: { json(): Promise<unknown> }) {
   const body = (await response.json()) as unknown[] | { data: unknown[] };
   return Array.isArray(body) ? body : body.data;
@@ -25,7 +20,7 @@ async function listIn(response: { json(): Promise<unknown> }) {
 
 test.describe('Unified API - debtist (debt collection)', () => {
   test('fetches a claim by id', async ({ unifiedApi, db }) => {
-    // SETUP: newest claim ← hub db
+    // SETUP: newest claim
     const companyId = await unifiedApi.companyId();
     const claim = await findLatestClaim(db.hub, companyId);
 

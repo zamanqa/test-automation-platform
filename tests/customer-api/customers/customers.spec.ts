@@ -1,6 +1,3 @@
-// test, expect  ← src/fixtures/index.ts
-// create/validate payloads, randomExternalId ← src/data/payloads/shared/customers.ts
-// find... / count... / delete...             ← src/db/queries/hub/customers.ts
 import { test, expect } from '@fixtures';
 import { createCustomerPayload, randomExternalId, validateAddressPayload } from '@data/payloads/shared/customers';
 import {
@@ -15,21 +12,17 @@ import {
   type CustomerRow,
 } from '@db/queries/hub/customers';
 
-/**
- * WHAT:   OLD Customer API — /customers and /validate-address.
- * FROM:   cus-api cypress/e2e/customer-api/02-customers/customers.cy.js (11 tests → 9).
- * NEEDS:  a customer; two customers with orders for the transfer test.
- * CHANGES DATA: yes — balance +100, external id, referral code (removed again),
- *         creates a customer, merges two customers.
- * Same as tests/unified-api/customers except: extra address validation test, and the create
- * body has no `region` field.
- */
+// Customer API - /customers and /validate-address.
+// Needs: a customer; two customers with orders for the transfer test.
+// Changes data: adds 100 to a balance, sets an external id, creates a referral code (removed again),
+// creates a customer, merges two customers.
+// Same as the Unified API test, plus the address check. The create body has no region field.
 test.describe.configure({ mode: 'default' });
 
 test.describe('Customer API - customers', () => {
-  let customer: CustomerRow; // set in beforeEach
+  let customer: CustomerRow;
 
-  // Before each test: the company's oldest customer. companyId ← .env CUSTOMER_API_COMPANY_ID
+  // the oldest customer of the company, so every run uses the same one
   test.beforeEach(async ({ db, customerApi }) => {
     customer = await findOldestCustomer(db.hub, customerApi.companyId);
   });
@@ -65,9 +58,9 @@ test.describe('Customer API - customers', () => {
     // ACTION: PUT /customers/{uid}/balance { add: 100 }
     const response = await customerApi.customers.addBalance(customer.uid, 100);
     expect(response.status()).toBe(200);
-    const { remaining_amount } = await response.json(); // ← new balance from the API
+    const { remaining_amount } = await response.json();
 
-    // CHECK: database customer_account (by email) has the same balance
+    // CHECK: the database has the same balance
     const account = await findCustomerAccount(db.hub, customer.email);
     expect(account).toBeDefined();
     expect(Number(account!.remaining_amount)).toBe(remaining_amount);
@@ -86,12 +79,11 @@ test.describe('Customer API - customers', () => {
     expect((await findCustomer(db.hub, customer.uid))?.external_customer_id).toBe(externalId);
   });
 
-  // Was tests 6-8 in Cypress, which passed the code between tests through Cypress.env.
   test('creates, reads back and removes a referral code', async ({ customerApi, db, cleanup }) => {
-    // SETUP: remove any existing code of this customer's email
+    // SETUP: a customer can have only one code, so remove an old one first
     await deleteReferralCodesOfEmail(db.hub, customer.email);
 
-    // Step "create": POST /customers/{uid}/referral-code → `code` ← API response
+    // ACTION: create a code
     const code = await test.step('create', async () => {
       const response = await customerApi.customers.createReferralCode(customer.uid);
       expect(response.status()).toBe(201);
@@ -100,10 +92,10 @@ test.describe('Customer API - customers', () => {
       return body.referral_code as string;
     });
 
-    // Undo after the test (was Cypress test 8)
+    // remove the code again after the test
     cleanup.add('delete referral code', () => deleteReferralCode(db.hub, code));
 
-    // Step "read back": GET returns the same code
+    // CHECK: reading it back gives the same code
     await test.step('read back', async () => {
       const response = await customerApi.customers.referralCode(customer.uid);
       expect(response.status()).toBe(200);
@@ -112,28 +104,27 @@ test.describe('Customer API - customers', () => {
   });
 
   test('creates a customer', async ({ customerApi, db }) => {
-    // SETUP: shared body minus `region` (the Customer API body never had it).
-    // `const { region, ...payload }` = copy everything except region into `payload`.
+    // SETUP: the customer body without the region field
     const { region, ...payload } = createCustomerPayload();
 
     // ACTION: POST /customers
     const response = await customerApi.customers.create(payload);
 
-    // CHECK: email ← payload.email is in the customers table
+    // CHECK: the customer is in the database
     expect(response.status()).toBe(201);
     expect(await findCustomerByEmail(db.hub, payload.email)).toBeDefined();
   });
 
   test('validates a customer address', async ({ customerApi }) => {
-    // ACTION: POST /validate-address (an address in Rome ← validateAddressPayload())
+    // ACTION: an address in Rome
     const response = await customerApi.customers.validateAddress(validateAddressPayload());
 
-    // CHECK: valid with no message (Cypress did not check the status code here either)
+    // CHECK: valid, no message (status code is not checked)
     expect(await response.json()).toMatchObject({ valid: true, message: '' });
   });
 
   test('transfers (merges) one customer into another', async ({ customerApi, db }) => {
-    // SETUP: two most recent customers with orders (else skipped)
+    // SETUP: the two newest customers that have orders
     const companyId = customerApi.companyId;
     const customers = await findTwoRecentCustomersWithOrders(db.hub, companyId);
     test.skip(customers.length < 2, 'Needs two customers with orders');
@@ -142,7 +133,7 @@ test.describe('Customer API - customers', () => {
     // ACTION: POST /customers/transfer
     const response = await customerApi.customers.transfer(source.uid, target.uid);
 
-    // CHECK: source now has 0 orders, target has some (hub db)
+    // CHECK: source has 0 orders now, target has some
     expect(response.status()).toBe(200);
     expect(await response.json()).toHaveProperty('message', 'Customer transferred successfully');
     expect(await countOrdersOfCustomer(db.hub, companyId, source.uid)).toBe(0);

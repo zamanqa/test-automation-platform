@@ -1,17 +1,7 @@
 import { faker } from '@faker-js/faker';
 
-// USED BY (files that import this one):
-//   tests/customer-api/orders/orders.spec.ts
-
-/**
- * Request body for POST /orders on the Customer API. Values from cus-api orderPayloads.js.
- *
- * WHERE THE VALUES COME FROM:
- *   order_id        ← faker: random 12-digit number (new every call)
- *   product_id, sku, stripe_customer_id, transaction_id
- *                   ← fixed dev values copied from Cypress (must exist on dev)
- *   everything else ← fixed test data copied from Cypress
- */
+// POST /orders body for the Customer API.
+// order_id is random; product, sku, Stripe customer and transaction are fixed dev values.
 
 const address = {
   first_name: 'Shahiduz',

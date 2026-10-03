@@ -1,34 +1,18 @@
-/**
- * Test runner in the browser — start with:  npm run runner   → opens http://localhost:4455
- *
- * WHAT IT DOES
- *   Run tab:      choose a suite, run all tests / one file / one test / only the last failed, headed or headless;
- *                 or add runs to a QUEUE (they run one after another). Watch the running test, the live log and
- *                 the failed tests (each with "Rerun"). The page shows a desktop notification when a run ends.
- *                 Environment check at the top (hub, APIs, database, crons).
- *   Reports tab:  every run of every suite (Hub_e2e_<time> ...): open, PDF, .zip, delete, compare two runs.
- *   History tab:  pass rate per run (chart) and unstable tests (failed in some of the last runs).
- *   Settings tab: the .env values and which ones are missing.
- *   Test sync:    tests/ is watched; a new, changed or deleted spec file → the test list of every suite is read again
- *                 → the page shows the real counts (+ what was added / deleted). "⟳ Sync tests" does it by hand.
- *   Claude tab:   "🤖 Ask Claude" on a failed test → Claude Code proposes a fix (read-only); "Apply fix" lets it edit,
- *                 then that test is rerun; "Undo" puts the old files back. See runner/claude.js.
- *
- * HOW
- *   A small web server (Node's built-in http, no extra packages) that starts
- *   `node node_modules/@playwright/test/cli.js test --project=... [file[:line]] [--headed]` as a child process
- *   and streams its output to the page (Server-Sent Events). The summary reporter prints @@TOTAL / @@RUNNING /
- *   @@DONE lines when TEST_RUNNER_UI is set; this server turns them into progress on the page.
- *   Reports are the run folders the summary reporter writes: reports/<suite>/<start time>/ (+ .zip),
- *   and reports/history.json (one entry per run, entries older than 3 days are dropped).
- *
- * SAFETY
- *   - Listens on 127.0.0.1 only (this PC).
- *   - Only one run at a time (the dev database is shared); more runs wait in the queue.
- *   - Only suites, files and tests from Playwright's own test list can be run (no free text reaches the command).
- *   - After "Stop" the tests' undo steps do not run → the server switches ALL hub crons back on (owner's rule).
- *   - The Settings tab shows the .env values in full — fine because the page is reachable only from this PC.
- */
+// Test runner in the browser: npm run runner → http://localhost:4455
+//
+// Tabs: Run (suite / file / test / last failed, headed or headless, queue, live log, rerun),
+// Reports (open, PDF, zip, delete, compare), History (pass rate, unstable tests), Settings (.env),
+// Claude (Ask Claude on a failed test, see runner/claude.js). tests/ is watched so the counts stay right.
+//
+// It starts the Playwright CLI as a child process and streams the output to the page.
+// The summary reporter prints @@TOTAL / @@RUNNING / @@DONE lines (when TEST_RUNNER_UI is set),
+// which this server turns into progress on the page.
+//
+// Safety:
+// - listens on 127.0.0.1 only, so the Settings tab can show the .env values
+// - one run at a time (the dev database is shared), more runs wait in the queue
+// - only suites, files and tests from Playwright's own list can be run
+// - after Stop the test cleanup does not run, so the server turns all hub crons back on
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -53,7 +37,7 @@ const SUITES = [
 const LABELS = { all: 'All' };
 for (const suite of SUITES) LABELS[suite.id] = suite.label;
 
-// ---------------------------------------------------------------- the current run + the queue
+// --- the current run + the queue ---
 
 let run = null; // the current / last run (see startRun)
 const queue = []; // runs waiting: [{ id, choice, description, at (added, ms) }]
@@ -215,7 +199,7 @@ function stopRun() {
   else run.child.kill('SIGTERM');
 }
 
-// ---------------------------------------------------------------- database: crons + environment check
+// --- database: crons + environment check ---
 
 function hubDbClient() {
   const { Client } = require('pg');
@@ -229,7 +213,7 @@ function hubDbClient() {
   });
 }
 
-/** After a Stop the tests' cleanup did not run → turn ALL hub crons back on (owner's rule: never leave them off). */
+/** After a Stop the tests' cleanup did not run → turn all hub crons back on (never leave them off). */
 async function switchCronsOn() {
   const client = hubDbClient();
   try {
@@ -279,11 +263,11 @@ async function environmentCheck() {
   return checks;
 }
 
-// ---------------------------------------------------------------- settings (.env, secrets hidden)
+// --- settings (.env) ---
 
 /**
  * Every variable of .env.example with its group and value, plus which ones are missing.
- * Values are shown in full (owner's choice, 2026-09-28) — the page is only reachable from this PC (127.0.0.1).
+ * Values are shown in full - the page is only reachable from this PC (127.0.0.1).
  */
 function settings() {
   const example = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8').split(/\r?\n/);
@@ -301,7 +285,7 @@ function settings() {
   return rows;
 }
 
-// ---------------------------------------------------------------- test list (from Playwright itself)
+// --- test list (from Playwright itself) ---
 
 const testListCache = {}; // project → { at, files }
 
@@ -340,7 +324,7 @@ function collectSpecs(suite, describes, out) {
   for (const child of suite.suites ?? []) collectSpecs(child, [...describes, child.title], out);
 }
 
-// ---------------------------------------------------------------- test count sync
+// --- test count sync ---
 // The runner watches tests/: when a spec file is added, changed or deleted, it reads Playwright's test list of
 // every suite again (--list) → the page shows the real number of tests and what was added / deleted.
 // "⟳ Sync tests" on the page does the same by hand.
@@ -397,7 +381,7 @@ function watchTests() {
   }
 }
 
-// ---------------------------------------------------------------- reports, history, compare
+// --- reports, history, compare ---
 
 const RUN_NAME = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/;
 
@@ -409,7 +393,7 @@ function readJson(file, fallback) {
   }
 }
 
-/** Reports and history entries older than this are deleted (owner, 2026-09-29). Same rule in src/reporters/summary-reporter.ts. */
+/** Reports and history entries older than this are deleted. Same rule in src/reporters/summary-reporter.ts. */
 const KEEP_DAYS = 3;
 
 /** True when a run name (2026-09-28_20-15-03 = its start time) is older than KEEP_DAYS. */
@@ -419,7 +403,7 @@ function isOlderThanKeepDays(run) {
 }
 
 /**
- * Deletes run folders (+ .zip) and history.json entries older than KEEP_DAYS — also when no new run happened.
+ * Deletes run folders (+ .zip) and history.json entries older than KEEP_DAYS - also when no new run happened.
  * Called before the Reports and History lists are read. A running run is never touched (it is newer).
  */
 function deleteOldReports() {
@@ -528,7 +512,7 @@ function compare(suite, a, b) {
   return out;
 }
 
-// ---------------------------------------------------------------- web server
+// --- web server ---
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webm': 'video/webm', '.zip': 'application/zip', '.md': 'text/plain; charset=utf-8',

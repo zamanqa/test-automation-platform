@@ -1,14 +1,8 @@
-// test, expect ← src/fixtures/index.ts
-// find...      ← src/db/queries/hub/transactions.ts
 import { test, expect } from '@fixtures';
 import { findLatestTransaction, findTransaction } from '@db/queries/hub/transactions';
 
-/**
- * WHAT:   OLD Customer API — /transactions (read only).
- * FROM:   cus-api cypress/e2e/customer-api/08-transactions/transactions.cy.js (2 tests).
- *         "filters transactions by order" is new (Postman: transactions_get by order_id).
- * CHANGES DATA: no.
- */
+// Customer API - /transactions (read only).
+// Changes data: no.
 test.describe('Customer API - transactions', () => {
   test('returns a list of transactions', async ({ customerApi }) => {
     // ACTION: GET /transactions
@@ -20,10 +14,10 @@ test.describe('Customer API - transactions', () => {
   });
 
   test('fetches a transaction by id', async ({ customerApi, db }) => {
-    // SETUP: newest transaction ← hub db (companyId ← .env)
+    // SETUP: newest transaction
     const transaction = await findLatestTransaction(db.hub, customerApi.companyId);
 
-    // ACTION: GET /transactions/{transaction_id}  (text id, e.g. "pi_..." / "TR_...")
+    // ACTION: by the text id like "pi_..." or "TR_..."
     const response = await customerApi.transactions.get(transaction.transaction_id);
 
     // CHECK
@@ -32,7 +26,7 @@ test.describe('Customer API - transactions', () => {
   });
 
   test('filters transactions by order', async ({ customerApi, db }) => {
-    // SETUP: newest transaction ← hub db; we filter by its order
+    // SETUP: newest transaction
     const transaction = await findLatestTransaction(db.hub, customerApi.companyId);
     test.skip(!transaction.order_id, 'newest transaction has no order_id');
     const orderId = String(transaction.order_id);

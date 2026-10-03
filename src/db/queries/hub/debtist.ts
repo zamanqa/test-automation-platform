@@ -1,9 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/customer-api/debtist/debtist.spec.ts
-//   tests/unified-api/debtist/debtist.spec.ts
-
 /** Queries on debtist_claims (debt collection) and invoices that can be claimed. */
 
 export type ClaimRow = { claim_id: string; status: string; stage: string; invoice_ids: string[] | string; customer_id: string | null };

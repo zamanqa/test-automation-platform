@@ -21,15 +21,10 @@ import {
   VouchersEndpoint,
 } from './endpoints/resources';
 
-/**
- * Customer API (old, still used by customers).
- *
- * Auth: HTTP basic auth on every request.
- * URL:  {base}/api/{version}{path} — the company comes from the credentials, not the path.
- */
+// Customer API (the old API, still used by customers).
+// Basic auth on every request. URL: {base}/api/{version}{path}
+// The company comes from the login, not from the URL.
 export class CustomerApiClient extends BaseApiClient {
-  // No constructor here: the one from BaseApiClient is inherited (it stores `request`).
-  // Endpoint groups get `this` and call this.call(...); small ones live in endpoints/resources.ts.
   readonly orders = new OrdersEndpoint(this);
   readonly customers = new CustomersEndpoint(this);
   readonly invoices = new InvoicesEndpoint(this);
@@ -48,22 +43,21 @@ export class CustomerApiClient extends BaseApiClient {
   readonly debtist = new DebtistEndpoint(this);
   readonly exports = new ExportsEndpoint(this);
 
-  /** Company the tests query in the database (CUSTOMER_API_COMPANY_ID). */
+  /** The company the tests look up in the database (CUSTOMER_API_COMPANY_ID) */
   get companyId(): string {
     return env.customerApi.CUSTOMER_API_COMPANY_ID;
   }
 
-  /** GET {base}/ping — answers "pong" when the API is up (no /api/{version} in this URL). */
+  /** GET {base}/ping - answers "pong" when the API is up */
   ping() {
     return this.send('GET', `${this.baseUrl()}/ping`);
   }
 
-  /** GET {base}/version — app name, API version, PHP / Laravel version (no /api/{version} in this URL). */
+  /** GET {base}/version - app name, API version, PHP and Laravel version */
   version() {
     return this.send('GET', `${this.baseUrl()}/version`);
   }
 
-  /** CUSTOMER_API_BASE_URL without a trailing slash. */
   private baseUrl() {
     return env.customerApi.CUSTOMER_API_BASE_URL.replace(/\/$/, '');
   }
@@ -74,7 +68,7 @@ export class CustomerApiClient extends BaseApiClient {
     return { Authorization: `Basic ${encoded}` };
   }
 
-  /** Builds {base}/api/{version}{path} and hands it to BaseApiClient.send(). Called by every endpoint group. */
+  /** {base}/api/{version}{path} - used by every endpoint group */
   call(method: HttpMethod, path: string, options?: RequestOptions): Promise<APIResponse> {
     return this.send(method, `${this.baseUrl()}/api/${env.customerApi.CUSTOMER_API_VERSION}${path}`, options);
   }

@@ -23,7 +23,7 @@ export type RecurringPaymentAction =
   | 'Mark as not paid'
   | 'Mark as settled';
 
-/** Hub → Subscription detail. Selectors carried over from hub-e2e-automation SubscriptionDetailPage.js. */
+/** Hub → subscription page. */
 export class SubscriptionDetailPage {
   readonly modal: Locator;
   readonly modalSubmit: Locator;
@@ -32,7 +32,6 @@ export class SubscriptionDetailPage {
   readonly successMessage: Locator;
   readonly autoRenewToggle: Locator;
 
-  /** Created per test by the fixture of the same name (src/fixtures/index.ts); `page` = Playwright's browser tab. */
   constructor(private readonly page: Page) {
     this.modal = page.locator('[id^="headlessui-dialog-panel"]');
     this.modalSubmit = page.locator('[data-cy="btn-submit"]');

@@ -1,39 +1,8 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/checkout-e2e/adyen.spec.ts
-//   tests/checkout-e2e/braintree.spec.ts
-//   tests/checkout-e2e/mollie.spec.ts
-//   tests/checkout-e2e/stripe.spec.ts
-//   tests/customer-api/orders/orders.spec.ts
-//   tests/hub-e2e/orders/order-payment-method.spec.ts
-//   tests/customer-api/payments/payments.spec.ts
-//   tests/hub-e2e/customers/customers.spec.ts
-//   tests/hub-e2e/orders/create-order.spec.ts
-//   tests/hub-e2e/orders/order-detail.spec.ts
-//   tests/hub-e2e/orders/order-list.spec.ts
-//   tests/hub-e2e/orders/order-workflow.spec.ts
-//   tests/unified-api/orders/orders.spec.ts
-//   tests/unified-api/payments/payments.spec.ts
-
-/**
- * Queries on the hub `orders` / `order_items` tables. Shared by every suite.
- *
- * Pattern shared by every file in src/db/queries/:
- *   - plain functions (no class), grouped by table
- *   - first parameter = which database (a `Database` from the db fixture, e.g. db.hub)
- *   - return typed rows:  one() = must exist (throws), maybeOne() = row or undefined,
- *     query() = all rows. The TEST decides what to assert.
- *   - used by tests like:  const order = await findOrder(db.hub, orderId);
- *
- * Reading the SQL:
- *   hub.one<OrderRow>(`SELECT ... WHERE o.company_id = $1`, [companyId])
- *     $1, $2 ...   = placeholders; the database driver fills them with the values in the
- *                    array after the SQL (1st value → $1). Safe against quotes / SQL injection.
- *     <OrderRow>   = the TypeScript shape of the returned row (defined below), so the
- *                    editor can autocomplete order.order_id, order.status ...
- *     ORDER_COLUMNS = the column list reused by several queries (defined below).
- */
+// Queries on the hub orders tables.
+// Every query file works the same way: plain functions, the first argument is the database (db.hub),
+// $1, $2 are filled with the values in the array. one() throws if there is no row, maybeOne() returns undefined.
 
 export type OrderRow = {
   order_id: string;
@@ -75,7 +44,7 @@ export function findLatestOrder(hub: Database, companyId: string) {
   );
 }
 
-/** Latest open Stripe/visa order that already has a transaction — can take a one-time payment. */
+/** Latest open Stripe/visa order that already has a transaction - can take a one-time payment. */
 export function findOrderEligibleForOneTimePayment(hub: Database, companyId: string) {
   return hub.maybeOne<OrderRow>(
     `SELECT ${ORDER_COLUMNS}
@@ -107,7 +76,7 @@ export function findChargeableCmsOrder(hub: Database, companyId: string) {
   );
 }
 
-/** Latest pending order whose transaction is an initial invoice — can get its invoice generated. */
+/** Latest pending order whose transaction is an initial invoice - can get its invoice generated. */
 export function findInvoiceableOrder(hub: Database, companyId: string) {
   return hub.one<OrderRow>(
     `SELECT ${ORDER_COLUMNS}
@@ -191,9 +160,9 @@ export async function getOrderTransactionId(hub: Database, orderId: string) {
 }
 
 /**
- * Latest pay-by-invoice order that has no invoice yet — "Create invoice" can be used on it.
- * Filter from the owner (2026-09-28): offlinegateway + invoice + no transaction_id + payment_required,
- * plus: still open, and a row in `transactions` exists for it — without one the hub answers
+ * Latest pay-by-invoice order that has no invoice yet - "Create invoice" can be used on it.
+ * Filter: offlinegateway + invoice + no transaction_id + payment_required,
+ * plus: still open, and a row in `transactions` exists for it - without one the hub answers
  * 404 "No query results for model [Transaction]" (e.g. 'clone' orders made by "Edit order").
  */
 export function findPayByInvoiceOrderWithoutInvoice(hub: Database, companyId: string) {
@@ -213,7 +182,7 @@ export function findPayByInvoiceOrderWithoutInvoice(hub: Database, companyId: st
   );
 }
 
-/** Latest open, paid order — "Mark as fulfilled" is enabled on it (unpaid or fulfilled orders do not offer it). */
+/** Latest open, paid order - "Mark as fulfilled" is enabled on it (unpaid or fulfilled orders do not offer it). */
 export function findOpenPaidOrder(hub: Database, companyId: string) {
   return hub.maybeOne<OrderRow>(
     `SELECT ${ORDER_COLUMNS}
@@ -284,7 +253,7 @@ export async function countOrderItems(hub: Database, orderId: string): Promise<n
 }
 
 /**
- * Newest checkout order that has no row in subscriptions yet (owner's rule for "Process open orders", 2026-09-29),
+ * Newest checkout order that has no row in subscriptions yet (for "Process open orders"),
  * with its customer id (cus_...). Or undefined.
  */
 export function findCheckoutOrderNotInSubscriptions(hub: Database, companyId: string) {
@@ -302,9 +271,9 @@ export function findCheckoutOrderNotInSubscriptions(hub: Database, companyId: st
 }
 
 /**
- * Newest checkout order (origin 'checkout') paid by Stripe card that has a customer — for "update payment method"
- * (tests/hub-e2e/orders/order-payment-method.spec.ts, owner: latest checkout order). Skips qa_auto order ids,
- * transaction ids and customer emails (owner rule). Returns order_id + customer_id (cus_…), or undefined.
+ * Newest checkout order (origin 'checkout') paid by Stripe card that has a customer - for "update payment method"
+ * (tests/hub-e2e/orders/order-payment-method.spec.ts). Skips qa_auto order ids,
+ * transaction ids and customer emails. Returns order_id + customer_id (cus_…), or undefined.
  */
 export function findLatestCheckoutCardOrder(hub: Database, companyId: string) {
   return hub.maybeOne<{ order_id: string; customer_id: string }>(

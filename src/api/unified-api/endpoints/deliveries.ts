@@ -4,7 +4,7 @@ import type { UnifiedApiClient } from '../UnifiedApiClient';
 export class DeliveriesEndpoint {
   constructor(private readonly api: UnifiedApiClient) {}
 
-  /** GET {base}/{version}/css/api/deliveries. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /css/api/deliveries */
   list() {
     return this.api.cssRequest('GET', '/css/api/deliveries');
   }

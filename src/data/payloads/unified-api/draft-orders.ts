@@ -2,20 +2,7 @@ import dayjs from 'dayjs';
 import { testEmail } from '@data/random';
 import type { SubscriptionVariantRow } from '@db/queries/hub/products';
 
-// USED BY (files that import this one):
-//   src/data/payloads/customer-api/draft-orders.ts
-//   tests/unified-api/draft-orders/draft-orders.spec.ts
-
-/**
- * Request body for POST /draft-orders. Values from unified-customer-api draftOrderPayloads.js.
- *
- * WHERE THE VALUES COME FROM:
- *   variant (product id, variant id, sku, price, names) ← the `variant` argument, a database row
- *                   found by findSubscriptionVariant() in the test (so nothing is hardcoded)
- *   customer email  ← testEmail('circuly.io') → "qa_auto_...@circuly.io"
- *   dates           ← dayjs(): start today, end in 1 month
- *   address         ← fixed test data (copied from Cypress)
- */
+// POST /draft-orders body. The product comes from the variant row the test found in the database.
 
 const address = {
   address_addition: '12',

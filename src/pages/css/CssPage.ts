@@ -3,7 +3,7 @@ import { env } from '@config/env';
 import type { Card } from '@data/static/checkout';
 
 /**
- * The CSS (customer self-service portal). Created by the `cssPage` fixture (src/fixtures/index.ts), gets Playwright's `page`.
+ * The CSS (customer self-service portal).
  * There is no password login in the tests: the hub's "Login CSS" button opens the CSS for that customer.
  */
 export class CssPage {
@@ -11,7 +11,7 @@ export class CssPage {
 
   /**
    * Hub customer page → "Login CSS" → CSS dashboard. If the first click does not open the CSS,
-   * open the customer page again and click once more (owner). customerId = cus_… (css-data.json).
+   * open the customer page again and click once more. customerId = cus_… (css-data.json).
    */
   async loginFromHub(customerId: string) {
     const customerUrl = `${env.hub.HUB_URL}en/cms/customers/${customerId}`;
@@ -71,7 +71,7 @@ export class CssPage {
     await this.page.getByRole('option', { name: type, exact: true }).click();
   }
 
-  /** Cancel form: "Cancellation reason *" (appears after the type) → the first reason in the list (owner). Returns its text. */
+  /** Cancel form: "Cancellation reason *" (appears after the type) → the first reason in the list. Returns its text. */
   async chooseFirstCancellationReason(): Promise<string> {
     await this.page.getByRole('button', { name: /^Cancellation reason \*/ }).click();
     const first = this.page.getByRole('option').first();
@@ -82,7 +82,7 @@ export class CssPage {
 
   /**
    * Date field that opens a calendar dialog (Pickup Date / Appointment date): first day that can be
-   * picked → first time slot that can be picked (if the dialog has slots) → Select (owner: first free date + slot).
+   * picked → first time slot that can be picked (if the dialog has slots) → Select.
    * Days that cannot be picked are NOT disabled; they carry the class "!pointer-events-none".
    * If the shown month has no free day, "Next" month is opened (up to 3 times).
    */

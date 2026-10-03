@@ -1,5 +1,3 @@
-// test, expect  ← src/fixtures/index.ts
-// find...Asset  ← src/db/queries/hub/product-trackings.ts (asset = physical item with serial number)
 import { test, expect } from '@fixtures';
 import {
   findAsset,
@@ -8,12 +6,9 @@ import {
   findRentedOutAssetOfActiveSubscription,
 } from '@db/queries/hub/product-trackings';
 
-/**
- * WHAT:   OLD Customer API — /product-tracking.
- * FROM:   cus-api cypress/e2e/customer-api/10-product-tracking/product-tracking.cy.js (4 tests).
- * CHANGES DATA: yes — one asset to repair, one back into stock.
- * The stock test needs an asset in 'to repair'; the repair test before it creates one.
- */
+// Customer API - /product-tracking.
+// Changes data: sends one asset to repair and puts one back into stock.
+// The stock test needs an asset in 'to repair'; the repair test before it creates one.
 test.describe.configure({ mode: 'default' });
 
 test.describe('Customer API - product tracking', () => {
@@ -27,7 +22,7 @@ test.describe('Customer API - product tracking', () => {
   });
 
   test('fetches an asset by serial number', async ({ customerApi, db }) => {
-    // SETUP: newest rented-out asset ← hub db (companyId ← .env)
+    // SETUP: newest rented-out asset
     const asset = await findLatestRentedOutAsset(db.hub, customerApi.companyId);
 
     // ACTION: GET /product-tracking/{serial}
@@ -60,7 +55,7 @@ test.describe('Customer API - product tracking', () => {
     // ACTION: POST /product-tracking/{serial}/stock
     const response = await customerApi.productTracking.stock(asset!.serial_number);
 
-    // CHECK: list response → first entry; database status 'in stock'
+    // CHECK: this endpoint answers with a list; the database status is 'in stock'
     expect(response.status()).toBe(200);
     expect((await response.json())[0]).toMatchObject({ success: true, message: 'Updated' });
     expect((await findAsset(db.hub, customerApi.companyId, asset!.serial_number))?.location_status).toBe('in stock');

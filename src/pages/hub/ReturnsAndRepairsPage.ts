@@ -1,8 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
-/** Hub → Returns and Repairs lists. Selectors carried over from hub-e2e-automation ReturnAndRepairPage.js. */
+/** Hub → Returns and Repairs lists. */
 export class ReturnsAndRepairsPage {
-  /** Created per test by the fixture of the same name (src/fixtures/index.ts); `page` = Playwright's browser tab. */
   constructor(private readonly page: Page) {}
 
   /**

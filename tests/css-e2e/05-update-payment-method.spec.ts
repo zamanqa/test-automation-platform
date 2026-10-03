@@ -1,27 +1,23 @@
 import { test, expect } from '@fixtures';
 import { readCssData } from '@data/css';
 import { payments } from '@data/static/checkout';
-import { findNewestPaymentMethod } from '@db/queries/hub/payment-methods';
+import { findNewestPaymentMethod, getNewestPaymentMethodId } from '@db/queries/hub/payment-methods';
 
-/**
- * WHAT:   CSS "Update payment method", always with card 4242 4242 4242 4242 (owner):
- *         1. profile → "Update payment methods" (for all orders) → … → Payment page → card → "Save payment method"
- *            → a new customer_payment_methods row for the customer + the checkout order, enabled = true.
- *         2. delivery details → "Update payment method" (for that delivery's order) → … → Payment page → card
- *            → "Save payment method" → a new row for the customer + that order, enabled = true.
- *         (the newest row of customer + order by id desc must be new and enabled — owner)
- * NEEDS:  .auth/css-data.json from 01-css-login.spec.ts.
- * CHANGES DATA: yes — new saved cards (customer_payment_methods).
- */
+// CSS "Update payment method", always with card 4242 4242 4242 4242:
+// 1. profile → "Update payment methods" (all orders) → Payment page → card → "Save payment method"
+// 2. delivery details → "Update payment method" (that order) → Payment page → card → "Save payment method"
+// Each time the newest payment method of the customer and order must be a new, enabled one.
+// Needs: .auth/css-data.json from 01-css-login.spec.ts.
+// Changes data: saves new cards.
 test.describe('CSS - update payment method', () => {
   test.beforeEach(async ({ cssPage }) => {
     const data = readCssData();
-    test.skip(!data, 'no .auth/css-data.json — run 01-css-login.spec.ts first');
+    test.skip(!data, 'no .auth/css-data.json, run 01-css-login.spec.ts first');
     await cssPage.loginFromHub(data!.customerId);
   });
 
   test('profile → update payment method by card → new enabled entry for the checkout order', async ({ cssPage, db }) => {
-    // SETUP: customer + checkout order ← css-data.json; newest payment method of that pair before ← hub db
+    // SETUP: newest payment method before the update
     const data = readCssData()!;
     const before = await findNewestPaymentMethod(db.hub, data.customerId, data.orderId);
 
@@ -38,9 +34,9 @@ test.describe('CSS - update payment method', () => {
     await expect(cssPage.page).toHaveURL(/\/en\/pay\//, { timeout: 30_000 });
     await cssPage.saveCard(payments.stripeCard);
 
-    // CHECK (DB): newest row of customer + checkout order (id desc) is a NEW one, enabled, card ending 4242
+    // CHECK: the newest payment method is a new one, enabled, card ending 4242
     await expect
-      .poll(async () => (await findNewestPaymentMethod(db.hub, data.customerId, data.orderId))?.id, {
+      .poll(() => getNewestPaymentMethodId(db.hub, data.customerId, data.orderId), {
         message: `new payment method of ${data.customerId} for order ${data.orderId}`,
         timeout: 60_000,
       })
@@ -52,19 +48,17 @@ test.describe('CSS - update payment method', () => {
   });
 
   test('delivery details → update payment method by card → new enabled entry for the order', async ({ cssPage, db }) => {
-    // SETUP: customer ← css-data.json
     const data = readCssData()!;
 
-    // SETUP: the "Upcoming deliveries" tab is only shown while the customer has an active consumable subscription
-    //        (99-cancel-and-report cancels it → run 05 before 99, as the full suite does)
+    // SETUP: the "Upcoming deliveries" tab only shows while there is an active consumable subscription
+    // (99-cancel-and-report cancels it, so 05 must run before 99)
     await expect(cssPage.page.getByRole('tab', { name: 'Your Orders' })).toBeVisible();
     test.skip((await cssPage.page.getByRole('tab', { name: 'Upcoming deliveries' }).count()) === 0, 'no upcoming deliveries (subscriptions cancelled by 99)');
 
     // ACTION: Upcoming deliveries → first delivery → Delivery details
     await cssPage.openFirstDelivery();
 
-    // SETUP: the order of this delivery ← the link's ?order_id= (the checkout order or an "Add new product" order);
-    //        newest payment method of customer + that order before ← hub db
+    // SETUP: the order of this delivery, and its newest payment method before the update
     const link = cssPage.page.getByRole('link', { name: /Update payment method/ });
     const orderId = new URL((await link.getAttribute('href'))!, cssPage.page.url()).searchParams.get('order_id')!;
     test.info().annotations.push({ type: 'order', description: orderId });
@@ -81,9 +75,9 @@ test.describe('CSS - update payment method', () => {
     await expect(cssPage.page).toHaveURL(/\/en\/pay\//, { timeout: 30_000 });
     await cssPage.saveCard(payments.stripeCard);
 
-    // CHECK (DB): newest row of customer + that order (id desc) is a NEW one, enabled, card ending 4242
+    // CHECK: the newest payment method is a new one, enabled, card ending 4242
     await expect
-      .poll(async () => (await findNewestPaymentMethod(db.hub, data.customerId, orderId))?.id, {
+      .poll(() => getNewestPaymentMethodId(db.hub, data.customerId, orderId), {
         message: `new payment method of ${data.customerId} for order ${orderId}`,
         timeout: 60_000,
       })

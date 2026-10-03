@@ -1,13 +1,8 @@
-// test, expect ← src/fixtures/index.ts
-// find...      ← src/db/queries/hub/recurring-payments.ts
 import { test, expect } from '@fixtures';
 import { findLatestEnabledRecurringPayment, findRecurringPayment } from '@db/queries/hub/recurring-payments';
 
-/**
- * WHAT:   OLD Customer API — /recurring-payments (read only).
- * FROM:   cus-api cypress/e2e/customer-api/09-recurring-payments/recurring-payments.cy.js (2 tests).
- * CHANGES DATA: no.
- */
+// Customer API - /recurring-payments (read only).
+// Changes data: no.
 test.describe('Customer API - recurring payments', () => {
   test('returns a list of recurring payments', async ({ customerApi }) => {
     // ACTION: GET /recurring-payments
@@ -19,7 +14,7 @@ test.describe('Customer API - recurring payments', () => {
   });
 
   test('fetches a recurring payment by id', async ({ customerApi, db }) => {
-    // SETUP: newest enabled recurring payment ← hub db (companyId ← .env)
+    // SETUP: newest enabled recurring payment
     const rp = await findLatestEnabledRecurringPayment(db.hub, customerApi.companyId);
 
     // ACTION: GET /recurring-payments/{id}

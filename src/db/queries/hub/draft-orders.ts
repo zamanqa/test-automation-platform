@@ -1,10 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/customer-api/draft-orders/draft-orders.spec.ts
-//   tests/hub-e2e/orders/create-order.spec.ts
-//   tests/unified-api/draft-orders/draft-orders.spec.ts
-
 /** Queries on draft_orders. */
 
 export type DraftOrderRow = { id: string; draft_id: string; status: string; order_checkout_link: string | null; deleted_at: string | null };

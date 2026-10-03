@@ -8,20 +8,16 @@ import {
   findRetailer,
 } from '@db/queries/hub/pos';
 
-/**
- * WHAT:   POS Order list: count = DB, columns, search by quote id, Status filter (Open, Completed = DB), paging,
- *         and the order page of a quote (its data + checkout link = draft_orders).
- * NEEDS:  quotes of the POS retailer in draft_orders (not made for a qa_auto customer).
- * CHANGES DATA: no.
- * posPage methods ← src/pages/pos/PosPage.ts
- */
+// POS → Order list: count, columns, search, Status filter, paging, and the page of a quote.
+// Needs: quotes of the POS retailer.
+// Changes data: no.
 test.describe('POS - order list', () => {
   test.beforeEach(async ({ posPage }) => {
     await posPage.login();
   });
 
   test('shows the order list with the number of quotes from the DB', async ({ posPage, db }) => {
-    // SETUP: quotes of the retailer (not deleted) ← hub db
+    // SETUP: number of quotes of the retailer (not deleted)
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const total = await countRetailerQuotes(db.hub, retailer.retailer_id, retailer.company_id);
 
@@ -30,14 +26,16 @@ test.describe('POS - order list', () => {
 
     // CHECK: tab "Order list (<total>)", the columns, and "... of <total> results"
     expect(await posPage.tabCount('Order list')).toBe(total);
-    for (const column of ['ID', 'Created at', 'Customer', 'Amount', 'Status']) {
-      await expect(posPage.page.getByRole('columnheader', { name: column, exact: true })).toBeVisible();
-    }
+    await expect(posPage.page.getByRole('columnheader', { name: 'ID', exact: true })).toBeVisible();
+    await expect(posPage.page.getByRole('columnheader', { name: 'Created at', exact: true })).toBeVisible();
+    await expect(posPage.page.getByRole('columnheader', { name: 'Customer', exact: true })).toBeVisible();
+    await expect(posPage.page.getByRole('columnheader', { name: 'Amount', exact: true })).toBeVisible();
+    await expect(posPage.page.getByRole('columnheader', { name: 'Status', exact: true })).toBeVisible();
     await expect(posPage.pageInfo()).toContainText(`of ${total} results`);
   });
 
   test('finds a quote by its id', async ({ posPage, db }) => {
-    // SETUP: newest quote of the retailer ← hub db
+    // SETUP: newest quote of the retailer
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const quote = await findNewestRetailerQuote(db.hub, retailer.retailer_id, retailer.company_id);
     test.skip(!quote, 'no quote for this retailer');
@@ -52,7 +50,7 @@ test.describe('POS - order list', () => {
   });
 
   test('Status filter "Open" shows only open quotes, as many as in the DB', async ({ posPage, db }) => {
-    // SETUP: number of open quotes ← hub db
+    // SETUP: number of open quotes
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const open = await countRetailerQuotesByStatus(db.hub, retailer.retailer_id, retailer.company_id, 'open');
 
@@ -67,7 +65,7 @@ test.describe('POS - order list', () => {
   });
 
   test('Status filter "Completed" shows only completed quotes, as many as in the DB', async ({ posPage, db }) => {
-    // SETUP: number of completed quotes ← hub db
+    // SETUP: number of completed quotes
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const completed = await countRetailerQuotesByStatus(db.hub, retailer.retailer_id, retailer.company_id, 'completed');
 
@@ -92,7 +90,7 @@ test.describe('POS - order list', () => {
   });
 
   test('shows a quote with its customer, items and checkout link', async ({ posPage, db }) => {
-    // SETUP: newest quote of the retailer ← hub db (draft_orders)
+    // SETUP: newest quote of the retailer
     const retailer = await findRetailer(db.hub, env.pos.POS_LOCATION_ID);
     const quote = await findNewestRetailerQuote(db.hub, retailer.retailer_id, retailer.company_id);
     test.skip(!quote, 'no quote for this retailer');
@@ -103,7 +101,7 @@ test.describe('POS - order list', () => {
     await posPage.search(quote!.draft_id);
     await posPage.rows().first().getByRole('link', { name: quote!.draft_id }).click();
 
-    // CHECK: order page with customer, addresses, total, and the checkout link from the DB
+    // CHECK: the quote page with addresses, total, and the checkout link from the database
     await expect(posPage.page.getByRole('heading', { name: `#${quote!.draft_id}` })).toBeVisible();
     await expect(posPage.page.getByText('Shipping information')).toBeVisible();
     await expect(posPage.page.getByText('Billing information')).toBeVisible();

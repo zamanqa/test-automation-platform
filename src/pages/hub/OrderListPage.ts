@@ -1,18 +1,8 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/**
- * Hub → Orders list. Selectors carried over from hub-e2e-automation OrderListPage.js.
- *
- * Pattern shared by every page object in src/pages/:
- *   - created per test by a fixture:  orderListPage: ({ page }, use) => use(new OrderListPage(page))
- *   - the constructor receives Playwright's `page` (the browser tab) and builds the
- *     locators once. A locator is only a description ("the search input"); nothing is
- *     looked up until an action (fill/click) or an expect() uses it — then Playwright
- *     waits for it automatically. That is why no cy.wait() is needed.
- *   - methods = user actions or checks on this screen; tests call them:
- *       await orderListPage.open(orderId)  →  goto() → clearAllFilters() → searchByOrderId()
- *   - other page objects (OrderDetailPage, OrderWorkflowPage) take over once an order is opened.
- */
+// Hub → Orders list.
+// Like every page object: the fixture creates it with the browser page, the constructor sets up
+// the locators, and Playwright waits for an element when a method clicks or checks it.
 export class OrderListPage {
   readonly searchInput: Locator;
   readonly clearFiltersButton: Locator;
@@ -108,8 +98,8 @@ export class OrderListPage {
 
   /**
    * Opens the searched order: checks it is in the search result, then loads its page directly.
-   * (A click in the list can leave the PREVIOUS record loaded behind the new URL — seen on
-   * subscriptions 2026-09-28 — so actions could hit the wrong order.)
+   * (A click in the list can leave the previous record loaded behind the new URL,
+   * so actions could hit the wrong order.)
    */
   async openFirstOrder(orderId: string) {
     const link = this.page.locator(`tbody a[href*="/cms/orders/${orderId}"]`).first();

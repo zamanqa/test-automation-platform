@@ -62,10 +62,11 @@ npm run report                     # Playwright report of the newest run (screen
 1. `playwright.config.ts` — the 4 projects, Chrome (`channel: 'chrome'`), workers: 1 per suite.
    UI suites: headless = 1920x1080; `--headed`/`--debug` = maximized window that fits the screen (`browserWindow`, 2026-09-30).
 2. `src/fixtures/index.ts` — **the wiring point**. Test asks for `{ db, unifiedApi, orderListPage, ... }`
-   → fixture creates the class. Header comment has the full map.
-3. `src/config/env.ts` — every `.env` variable, validated per group on first use (`env.hub.HUB_URL`).
-4. Databases: `src/db/databases.ts` (the one list: `hub`, `checkout`) → `connection.ts` (`Database`,
-   `createDatabases`) → `src/db/queries/hub/*.ts` (plain functions, first arg = `db.hub`).
+   → fixture creates the class.
+3. `src/config/env.ts` — every `.env` variable, validated per group on first use (`env.hub.HUB_URL`, one getter per group).
+4. Databases: `src/db/databases.ts` (connection settings per database) → `connection.ts` (`Database`,
+   `createDatabases()` = `db.hub`, `db.checkout`; a new database needs one line there) → `src/db/queries/hub/*.ts`
+   (plain functions, first arg = `db.hub`).
 5. API: `src/api/BaseApiClient.ts` (`send()`) ← `UnifiedApiClient` (JWT) / `CustomerApiClient` (basic auth)
    / `HubApiClient` (Lumen login, crons). Endpoint groups in `*/endpoints/` call back into their client.
 6. Pages: `src/pages/hub/*`, `src/pages/checkout/*` (+ `payment/` for provider iframes). Constructor gets `page`.
@@ -73,7 +74,7 @@ npm run report                     # Playwright report of the newest run (screen
    `src/data/random.ts` (everything created is prefixed `TEST_DATA_PREFIX`, default `qa_auto_`).
 8. `src/db/cleanup.ts` — undo steps that run after a test even when it fails.
 
-Annotated example spec: `tests/unified-api/orders/orders.spec.ts`.
+Example spec: `tests/unified-api/orders/orders.spec.ts`.
 
 ## Code style — keep it SIMPLE (owner is a QA, not a developer; 2026-09-27)
 
@@ -87,18 +88,18 @@ Annotated example spec: `tests/unified-api/orders/orders.spec.ts`.
   boilerplate (no "This function…" essays, no emoji in code, no tool or AI mentions in code or comments).
 - The checkout files (src/pages/checkout, tests/checkout-e2e, src/reporters) follow this style — copy them.
 
-## Comment convention (keep it when adding code — the owner reads the code through these)
+## Comment convention (short comments only — cleaned up 2026-10-03)
 
-- **Test files:** top block `WHAT / FROM / NEEDS / CHANGES DATA`; every test is split into
-  `// SETUP`, `// ACTION`, `// CHECK`. (Older suites also have `← src/...` arrows on imports and values;
-  new checkout code leaves them out to stay short.)
+- **Test files:** 2-4 `//` lines at the top: what it tests, `// Needs: ...`, `// Changes data: ...`.
+  Every test is split into `// SETUP`, `// ACTION`, `// CHECK`.
   "INFO only" = an annotation in the report, not a pass/fail check.
-- **Query / payload / data files:** a `// USED BY` block after the imports lists the importing files
-  (regenerate by hand when you add a user); each exported function has a one-line `/** */`:
+- No `USED BY` lists, no `← src/...` arrows, no "reading guide" essays, no history notes
+  ("was Cypress ...", "owner, <date>") in code. Facts and history belong in this file.
+- **Query / payload / data files:** each exported function has a one-line `/** */`:
   what it returns, "or undefined" (maybeOne) vs "Throws if none" (one).
-- **Endpoint methods:** `/** <HTTP METHOD> <full URL pattern> — params ... */`.
-- **Page-object methods:** what the user action is on screen, where parameters come from.
-- **Classes:** what creates them (usually a fixture) and what the constructor receives.
+  For `expect.poll` add a small one-value query (`getNewestPaymentMethodId`, `getProductMsrp` ...) instead of `async () => (await ...)?.x`.
+- **Endpoint methods:** `/** <HTTP METHOD> <path> */` (+ a short note only when needed).
+- **Page-object methods:** what the user action is on screen.
 
 ## Conventions
 

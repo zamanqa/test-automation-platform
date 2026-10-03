@@ -7,18 +7,15 @@ import { findOrder } from '@db/queries/hub/orders';
 import { findSubscriptionRow } from '@db/queries/hub/subscriptions';
 import { countInvoicedPayments, findOpenRecurringPaymentIds, getPaymentInvoiceId } from '@db/queries/hub/recurring-payments';
 
-/**
- * WHAT:   Gets a customer into the CSS (customer self-service portal) the way the owner does it:
- *         1. checkout (Shopify + Stripe shop) → pay by card → order number
- *         2. hub → that order → "Create subscription" for one NORMAL and one CONSUMABLE product
- *            (their product names are kept, so the CSS tests can tell the two subscriptions apart)
- *         3. hub → the NORMAL subscription → "Charge recurring payment" for its first 2 open payments (→ 2 invoices)
- *            (a consumable subscription's recurring payments cannot be charged by hand: the menu item stays disabled)
- *         4. hub → the order's customer → "Login CSS" (tried a second time if the first click does not log in)
- *         Saves for the other CSS tests: .auth/css-data.json (ids, product names, invoice ids).
- * NEEDS:  hub login (hub-setup), the Stripe test cart with a normal and a consumable product.
- * CHANGES DATA: yes — a new checkout order + 2 subscriptions on it + 2 charged recurring payments (invoices) of the normal one.
- */
+// Makes a customer for the CSS (customer self-service portal) tests:
+// 1. checkout (Shopify + Stripe shop) → pay by card → order number
+// 2. hub → that order → "Create subscription" for one normal and one consumable product
+// 3. hub → the normal subscription → charge its first 2 open payments (→ 2 invoices).
+//    Payments of a consumable subscription cannot be charged by hand, the menu item stays disabled.
+// 4. hub → the customer → "Login CSS"
+// The ids, product names and invoice ids are saved in .auth/css-data.json for the other CSS tests.
+// Needs: hub login, the Stripe test cart with a normal and a consumable product.
+// Changes data: a new checkout order, 2 subscriptions on it, 2 charged payments of the normal one.
 test.describe('CSS - login from the hub', () => {
   test('new checkout order → 2 subscriptions in the hub → Login CSS', async ({
     page,
@@ -38,7 +35,7 @@ test.describe('CSS - login from the hub', () => {
     await checkoutPage.acceptAllCheckboxes();
     await checkoutPage.pay();
 
-    // CHECK: confirmation page shows the order number → after 30 s the order is in the hub DB
+    // CHECK: confirmation page → after 30 s the order is in the hub database
     const orderId = await checkoutPage.expectConfirmation();
     await checkoutPage.waitForOrderToReachHub();
     expect(await findOrder(db.hub, orderId), `order ${orderId} in the hub DB`).toBeDefined();
@@ -55,7 +52,7 @@ test.describe('CSS - login from the hub', () => {
     expect(normalRow, 'the order has a normal product without subscription').not.toBe(-1);
     expect(consumableRow, 'the order has a consumable product without subscription').not.toBe(-1);
 
-    // SETUP: remember the product names (CSS shows the subscription by product name)
+    // SETUP: keep the product names, the CSS shows the subscriptions by product name
     const normalProduct = await orderDetailPage.productNameOf(normalRow);
     const consumableProduct = await orderDetailPage.productNameOf(consumableRow);
     test.info().annotations.push({ type: 'normal subscription product', description: normalProduct });
@@ -76,7 +73,7 @@ test.describe('CSS - login from the hub', () => {
     expect(await findSubscriptionRow(db.hub, consumableSubscriptionId), `consumable subscription ${consumableSubscriptionId} in the DB`).toBeDefined();
 
     // ---------- 3. Hub: charge 2 recurring payments of the normal subscription ----------
-    // SETUP: its first 2 open recurring payments ← hub db
+    // SETUP: its first 2 open recurring payments
     const normalPayments = await findOpenRecurringPaymentIds(db.hub, normalSubscriptionId, 2);
     expect(normalPayments, 'normal subscription has 2 open recurring payments').toHaveLength(2);
 
@@ -85,12 +82,12 @@ test.describe('CSS - login from the hub', () => {
     await subscriptionDetailPage.chargeRecurringPayment(normalPayments[0]);
     await subscriptionDetailPage.chargeRecurringPayment(normalPayments[1]);
 
-    // CHECK (DB): both charged payments have an invoice_id
+    // CHECK: both payments have an invoice in the database
     await expect
       .poll(() => countInvoicedPayments(db.hub, normalPayments), { message: `invoices of recurring payments ${normalPayments.join(', ')}`, timeout: 60_000 })
       .toBe(2);
 
-    // SETUP: remember the invoice ids (the CSS tests look for them)
+    // SETUP: keep the invoice ids for the CSS tests
     const normalInvoices = [String(await getPaymentInvoiceId(db.hub, normalPayments[0])), String(await getPaymentInvoiceId(db.hub, normalPayments[1]))];
     test.info().annotations.push({ type: 'normal invoices', description: normalInvoices.join(', ') });
 
@@ -106,7 +103,7 @@ test.describe('CSS - login from the hub', () => {
     // CHECK: the CSS portal is open
     await expect(page).toHaveURL(/css\./);
 
-    // SETUP for the other CSS tests: save the ids, product names and invoice ids
+    // save the ids, product names and invoice ids for the other CSS tests
     const cssData = {
       orderId,
       customerId,

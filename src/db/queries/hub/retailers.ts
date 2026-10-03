@@ -1,9 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/customer-api/retailers/retailers.spec.ts
-//   tests/unified-api/retailers/retailers.spec.ts
-
 /** Queries on retailers. */
 
 export type RetailerRow = { id: string; retailer_id: string; location_id: string; name: string; enabled: boolean };

@@ -26,56 +26,23 @@ import { AdyenPayment } from '@pages/checkout/payment/AdyenPayment';
 import { BraintreePayment } from '@pages/checkout/payment/BraintreePayment';
 import { MolliePayment } from '@pages/checkout/payment/MolliePayment';
 
-/**
- * Every test imports `test` and `expect` from here, never from @playwright/test:
- *
- *   import { test, expect } from '@fixtures';
- *   test('...', async ({ db, unifiedApi, cleanup }) => { ... });
- *
- * Fixtures are created only when a test asks for them, so an API test never opens
- * a browser and a UI test that does not use `db` never connects to a database.
- *
- * HOW EVERYTHING CONNECTS — this file is the wiring point:
- *
- *   test file  ──asks for──►  fixture name (below)  ──creates──►  class instance
- *
- *   { db }                 → createDatabases()        src/db/connection.ts   (reads src/db/databases.ts → src/config/env.ts)
- *   { hubCompanyId }       → findCompanyIdByName()    src/db/queries/hub/companies.ts   (uses the db fixture)
- *   { unifiedApi }         → new UnifiedApiClient()   src/api/unified-api/   (extends BaseApiClient)
- *   { customerApi }        → new CustomerApiClient()  src/api/customer-api/  (extends BaseApiClient)
- *   { hubApi }             → new HubApiClient()       src/api/hub-api/       (extends BaseApiClient)
- *   { cleanup }            → new Cleanup()            src/db/cleanup.ts
- *   { orderListPage } ...  → new OrderListPage(page)  src/pages/hub/...      (gets Playwright's `page`)
- *   { checkoutPage } ...   → new CheckoutPage(page)   src/pages/checkout/...
- *   { posPage } ...        → new PosPage(page)        src/pages/pos/PosPage.ts
- *   { cssPage }            → new CssPage(page)        src/pages/css/CssPage.ts
- *
- * Two lifetimes:
- *   scope 'worker' → created ONCE per worker process and shared by all its tests
- *                    (database pools, API clients with their login token).
- *   test-scoped    → created fresh for EVERY test, then torn down (pages, cleanup).
- *
- * Every fixture follows the same shape:
- *   async ({ other fixtures it needs }, use) => {
- *     const thing = ...create...;   // 1. setup   — runs before the test
- *     await use(thing);             // 2. the test runs here, receiving `thing`
- *     ...teardown...;               // 3. teardown — runs after the test, even if it failed
- *   }
- */
+// Every test imports test and expect from here:
+//   import { test, expect } from '@fixtures';
+//   test('...', async ({ db, unifiedApi, orderListPage }) => { ... });
+//
+// A fixture is only created when a test asks for it, so an API test never opens a browser.
+// Worker fixtures (db, API clients) are created once per worker and shared by its tests.
+// Test fixtures (pages, cleanup) are created new for every test.
 
 type WorkerFixtures = {
-  /** Every database from src/db/databases.ts: db.hub, db.checkout ... One pool per worker. */
-  db: Databases;
-  /** company_id of HUB_COMPANY_NAME — the company the hub tests are logged into. */
-  hubCompanyId: string;
+  db: Databases; // db.hub, db.checkout
+  hubCompanyId: string; // company of HUB_COMPANY_NAME
   unifiedApi: UnifiedApiClient;
   customerApi: CustomerApiClient;
-  /** Hub (Lumen) API, for triggering crons. */
-  hubApi: HubApiClient;
+  hubApi: HubApiClient; // starts crons
 };
 
 type TestFixtures = {
-  /** Undo steps that run after the test, even when it fails. */
   cleanup: Cleanup;
 
   // hub pages
@@ -92,7 +59,7 @@ type TestFixtures = {
   productPage: ProductPage;
   debtCollectionPage: DebtCollectionPage;
 
-  // checkout pages
+  // checkout, POS and CSS pages
   checkoutPage: CheckoutPage;
   posPage: PosPage;
   cssPage: CssPage;
@@ -103,7 +70,6 @@ type TestFixtures = {
 };
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
-  // ---------- worker-scoped: created once per worker, shared by its tests ----------
   db: [
     async ({}, use) => {
       const db = createDatabases();
@@ -115,17 +81,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   hubCompanyId: [
     async ({ db }, use) => {
-      await use(await findCompanyIdByName(db.hub, env.hub.HUB_COMPANY_NAME));
+      const companyId = await findCompanyIdByName(db.hub, env.hub.HUB_COMPANY_NAME);
+      await use(companyId);
     },
     { scope: 'worker' },
   ],
 
-  // API clients: `playwright.request.newContext()` is Playwright's HTTP client (no browser).
-  // It is passed to the client's constructor → BaseApiClient stores it as `this.request`.
   unifiedApi: [
     async ({ playwright }, use) => {
       const request = await playwright.request.newContext();
-      await use(new UnifiedApiClient(request)); // token is cached for the whole worker
+      await use(new UnifiedApiClient(request)); // keeps its login token for the whole worker
       await request.dispose();
     },
     { scope: 'worker' },
@@ -149,17 +114,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: 'worker' },
   ],
 
-  // ---------- test-scoped ----------
-  // `cleanup` collects undo steps during the test (cleanup.add(...)) and runs them
-  // after `use` returns — i.e. after the test, pass or fail.
+  // undo steps added during the test run after it, pass or fail
   cleanup: async ({}, use) => {
     const cleanup = new Cleanup();
     await use(cleanup);
     await cleanup.runAll();
   },
 
-  // Page objects: `page` is Playwright's built-in browser tab fixture. Each page object
-  // receives it in its constructor and builds its locators from it.
   loginPage: async ({ page }, use) => use(new LoginPage(page)),
   orderListPage: async ({ page }, use) => use(new OrderListPage(page)),
   orderDetailPage: async ({ page }, use) => use(new OrderDetailPage(page)),

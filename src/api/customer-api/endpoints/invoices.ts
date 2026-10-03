@@ -1,10 +1,10 @@
 import type { CustomerApiClient } from '../CustomerApiClient';
 
-/** /invoices endpoints of the Customer API. */
+/** /invoices endpoints. */
 export class InvoicesEndpoint {
   constructor(private readonly api: CustomerApiClient) {}
 
-  /** GET {base}/api/{version}/invoices. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /invoices */
   list() {
     return this.api.call('GET', '/invoices');
   }
@@ -14,22 +14,22 @@ export class InvoicesEndpoint {
     return this.api.call('GET', `/invoices/${invoiceId}`);
   }
 
-  /** GET {base}/api/{version}/invoices-with-items/{invoiceId} — params: invoiceId: string | number. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /invoices-with-items/{invoiceId} */
   withItems(invoiceId: string | number) {
     return this.api.call('GET', `/invoices-with-items/${invoiceId}`);
   }
 
-  /** GET {base}/api/{version}/invoices/{invoiceId}/download — params: invoiceId: string | number. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /invoices/{invoiceId}/download */
   download(invoiceId: string | number) {
     return this.api.call('GET', `/invoices/${invoiceId}/download`);
   }
 
-  /** POST {base}/api/{version}/invoices/{invoiceNumber}/settle — params: invoiceNumber: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /invoices/{invoiceNumber}/settle */
   settle(invoiceNumber: string) {
     return this.api.call('POST', `/invoices/${invoiceNumber}/settle`);
   }
 
-  /** POST {base}/api/{version}/invoices/{invoiceNumber}/refund — params: invoiceNumber: string, body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /invoices/{invoiceNumber}/refund */
   refund(invoiceNumber: string, body: unknown) {
     return this.api.call('POST', `/invoices/${invoiceNumber}/refund`, { data: body });
   }

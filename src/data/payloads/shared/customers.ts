@@ -1,10 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { testEmail } from '@data/random';
 
-// USED BY (files that import this one):
-//   tests/customer-api/customers/customers.spec.ts
-//   tests/unified-api/customers/customers.spec.ts
-
 /** Request bodies for /customers. Same for both APIs. Values from unified-customer-api customerPayloads.js. */
 
 export function createCustomerPayload() {

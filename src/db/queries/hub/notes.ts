@@ -1,9 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/customer-api/notes/notes.spec.ts
-//   tests/unified-api/notes/notes.spec.ts
-
 /** Queries on notes. */
 
 export type NoteRow = {

@@ -16,8 +16,7 @@ export type PosCustomer = {
 
 /**
  * The POS portal (StoreConnect): login, Order list, order page, Create order, and the two
- * Subscriptions tabs. Created by the `posPage` fixture (src/fixtures/index.ts), gets Playwright's `page`.
- * Addresses come from POS_URL in .env (login page with ?company_id=).
+ * Subscriptions tabs. The login page is POS_URL in .env.
  */
 export class PosPage {
   /** https://pos.development.circuly.io (from POS_URL) */

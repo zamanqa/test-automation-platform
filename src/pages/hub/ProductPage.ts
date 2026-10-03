@@ -3,8 +3,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /**
  * Hub → Products (/en/cms/products): the tabs Products, Variants and Attributes, the "Create product"
  * form, the product and variant pages and the attribute form.
- * Taxes, Exchange groups and Bundles are NOT touched (owner's rule).
- * Created per test by the fixture `productPage` (src/fixtures/index.ts); `page` = Playwright's browser tab.
+ * Taxes, Exchange groups and Bundles are never touched.
  */
 export class ProductPage {
   readonly searchInput: Locator;
@@ -40,7 +39,7 @@ export class ProductPage {
     if (tab !== 'Products') await this.page.getByRole('tab', { name: tab, exact: true }).click();
     await expect(this.page.getByRole('tab', { name: tab, exact: true })).toHaveAttribute('aria-selected', 'true');
     await expect(this.rows.first(), `rows on the "${tab}" tab`).toBeVisible();
-    // the list loads twice (saved view) — a button clicked before that is ignored or its popup closes
+    // the list loads twice (saved view) - a button clicked before that is ignored or its popup closes
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -48,7 +47,7 @@ export class ProductPage {
   async search(text: string) {
     await this.searchInput.fill(text);
     await expect(this.rows.first(), `first row after searching "${text}"`).toContainText(text);
-    // the list is loaded once more after typing stops — a row ticked before that loses its tick
+    // the list is loaded once more after typing stops - a row ticked before that loses its tick
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -146,7 +145,7 @@ export class ProductPage {
     return this.rowOf(id).getByRole('cell').nth(index);
   }
 
-  /** Types a new value (plain number like "12" — a comma is dropped: "15,00" becomes 1500) into an editable cell (edit mode must be on). */
+  /** Types a new value (plain number like "12" - a comma is dropped: "15,00" becomes 1500) into an editable cell (edit mode must be on). */
   async editCell(id: string, column: string, value: string) {
     const input = (await this.cell(id, column)).getByRole('textbox');
     await input.fill(value);

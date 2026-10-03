@@ -1,15 +1,9 @@
-// test, expect ← src/fixtures/index.ts
-// findLatestClaimWithCustomer ← src/db/queries/hub/debtist.ts (debtist_claims = debt-collection cases)
 import { test, expect } from '@fixtures';
 import { findLatestClaimWithCustomer } from '@db/queries/hub/debtist';
 
-/**
- * WHAT:   Hub UI → Debt collection (claims at Debtist) — no Cypress tests existed; added 2026-09-28:
- *         search, status filter, claim details vs database, comment, file upload.
- * NEEDS:  at least one claim with a customer (the customer-api / hub claim tests create them).
- * CHANGES DATA: yes — adds a comment and uploads a small PDF to the newest claim (sent to Debtist dev).
- * debtCollectionPage methods ← src/pages/hub/DebtCollectionPage.ts
- */
+// Hub → Debt collection (claims at Debtist): search, status filter, claim details, comment, file upload.
+// Needs: a claim with a customer (the API and hub claim tests create them).
+// Changes data: adds a comment and uploads a small PDF to the newest claim (goes to Debtist dev).
 test.describe.configure({ mode: 'default' });
 
 test.describe('Hub - debt collection', () => {
@@ -23,13 +17,13 @@ test.describe('Hub - debt collection', () => {
   });
 
   test('finds a claim by id in the list', async ({ debtCollectionPage }) => {
-    // ACTION + CHECK: list without filters → search the claim id → its row shows
+    // ACTION + CHECK: search the claim id, its row shows
     await debtCollectionPage.openList();
     await debtCollectionPage.search(claim.claim_id);
   });
 
   test('filters the list by status', async ({ debtCollectionPage, page }) => {
-    // ACTION: list without filters → Status = the newest claim's status
+    // ACTION: filter by the status of the newest claim
     await debtCollectionPage.openList();
     await debtCollectionPage.filterByStatus(claim.status);
 
@@ -42,7 +36,7 @@ test.describe('Hub - debt collection', () => {
     // ACTION: open the claim
     await debtCollectionPage.open(claim.claim_id);
 
-    // CHECK: status, stage and customer id as in debtist_claims
+    // CHECK: status, stage and customer id are the same as in the database
     await expect(debtCollectionPage.detail('Status:'), 'claim status').toHaveText(claim.status);
     await expect(debtCollectionPage.detail('Stage:'), 'claim stage').toHaveText(claim.stage);
     await expect(debtCollectionPage.detail('Customer ID:'), 'claim customer').toHaveText(claim.customer_id!);

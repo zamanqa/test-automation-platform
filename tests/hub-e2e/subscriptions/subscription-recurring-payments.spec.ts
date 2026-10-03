@@ -1,5 +1,3 @@
-// test, expect ← src/fixtures/index.ts
-// ...          ← src/db/queries/hub/recurring-payments.ts ("RP" = recurring payment row)
 import { test, expect } from '@fixtures';
 import {
   countOpenRecurringPayments,
@@ -11,22 +9,17 @@ import {
   setRecurringPaymentSettled,
 } from '@db/queries/hub/recurring-payments';
 
-/**
- * WHAT:   Hub UI → Subscription detail → recurring payments table → row menu actions.
- * FROM:   hub-e2e-automation cypress/e2e/02-subscription-page/subscriptionRP.cy.js (5 tests).
- * NEEDS:  an active normal checkout subscription with ≥ 4 open recurring payments.
- * CHANGES DATA: yes — deletes one RP, settles one, un-settles one, CHARGES one (creates an invoice),
- *         changes future amounts to 20.
- * target.rp1..rp4 = ids of the subscription's first four open recurring payments ← hub db.
- */
+// Hub → subscription page → recurring payments table → row menu actions.
+// Needs: an active normal checkout subscription with at least 4 open recurring payments.
+// Changes data: deletes one recurring payment, settles one, un-settles one, charges one (creates an invoice),
+// sets future amounts to 20.
 test.describe.configure({ mode: 'default' });
 
 test.describe('Hub - subscription recurring payments', () => {
-  // Set in beforeEach: the subscription and the ids of its first four open recurring payments
+  // the subscription and the ids of its first four open recurring payments
   let target: { subscription_id: string; rp1: string; rp2: string; rp3: string; rp4: string };
 
-  // Before each test: pick the subscription ← hub db, open it, show 50 RPs per page
-  // (re-picked every test, because earlier tests change its payments)
+  // picked again for every test, because earlier tests change its payments
   test.beforeEach(async ({ db, hubCompanyId, subscriptionListPage, subscriptionDetailPage }) => {
     target = await findSubscriptionWithFourOpenPayments(db.hub, hubCompanyId);
     test.info().annotations.push({ type: 'subscription', description: target.subscription_id });
@@ -35,7 +28,7 @@ test.describe('Hub - subscription recurring payments', () => {
   });
 
   test('deletes a recurring payment', async ({ subscriptionDetailPage, db }) => {
-    // SETUP: number of open RPs before ← hub db
+    // SETUP: number of open recurring payments before
     const before = await countOpenRecurringPayments(db.hub, target.subscription_id);
 
     // ACTION: row of rp1 → "Delete recurring payment" → tick consequences → Submit → close
@@ -43,7 +36,7 @@ test.describe('Hub - subscription recurring payments', () => {
     await subscriptionDetailPage.confirmConsequences();
     await subscriptionDetailPage.closeDialog();
 
-    // CHECK: one fewer open RP, and rp1 has deleted_at set
+    // CHECK: one open payment less, and rp1 has deleted_at set
     await expect
       .poll(() => countOpenRecurringPayments(db.hub, target.subscription_id), { message: `open RPs of ${target.subscription_id}` })
       .toBe(before - 1);
@@ -64,7 +57,7 @@ test.describe('Hub - subscription recurring payments', () => {
   });
 
   test('marks a settled recurring payment as not paid', async ({ subscriptionDetailPage, db, page }) => {
-    // SETUP: make rp3 settled in the database first (the action only exists for settled RPs), reload
+    // SETUP: make rp3 settled in the database first (the action is only offered for settled payments)
     await setRecurringPaymentSettled(db.hub, target.rp3);
     await page.reload();
     await subscriptionDetailPage.showRecurringPayments(50);
@@ -86,7 +79,7 @@ test.describe('Hub - subscription recurring payments', () => {
     await subscriptionDetailPage.confirmConsequences();
     await subscriptionDetailPage.closeDialog('Your invoice was generated successfully!');
 
-    // CHECK: rp4 gets an invoice_id (poll up to 30s). Was a fixed cy.wait(10000).
+    // CHECK: within 30 s rp4 has an invoice_id
     await expect
       .poll(() => getPaymentInvoiceId(db.hub, target.rp4), { message: `invoice_id of recurring payment ${target.rp4}`, timeout: 30_000 })
       .not.toBeNull();
@@ -98,7 +91,7 @@ test.describe('Hub - subscription recurring payments', () => {
     await subscriptionDetailPage.editFuturePaymentsAmount(20);
     await subscriptionDetailPage.closeDialog();
 
-    // CHECK: amount stored as '20.0000' (4 decimals in the database)
+    // CHECK: amount '20.0000' (4 decimals in the database)
     await expect
       .poll(() => getPaymentAmount(db.hub, target.rp1), { message: `amount of recurring payment ${target.rp1}` })
       .toBe('20.0000');

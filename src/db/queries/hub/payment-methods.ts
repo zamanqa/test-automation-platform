@@ -1,17 +1,12 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/css-e2e/05-update-payment-method.spec.ts
-//   tests/css-e2e/06-hub-update-payment-method.spec.ts
-//   tests/hub-e2e/orders/order-payment-method.spec.ts
-
 /** Queries on customer_payment_methods (the saved cards / accounts of a customer, one row per order). */
 
 export type PaymentMethodRow = { id: string; order_id: string | null; enabled: boolean; payment_method: string; last_4_digit: string | null };
 
 /**
  * Newest payment method (id desc) of a customer for one order, or undefined.
- * An update can add rows for several orders of the customer, so always filter by the order too (owner).
+ * An update can add rows for several orders of the customer, so always filter by the order too.
  */
 export function findNewestPaymentMethod(hub: Database, customerId: string, orderId: string) {
   return hub.maybeOne<PaymentMethodRow>(
@@ -22,4 +17,10 @@ export function findNewestPaymentMethod(hub: Database, customerId: string, order
       LIMIT 1`,
     [customerId, orderId],
   );
+}
+
+/** Id of the newest payment method of a customer for one order, or undefined. */
+export async function getNewestPaymentMethodId(hub: Database, customerId: string, orderId: string) {
+  const row = await findNewestPaymentMethod(hub, customerId, orderId);
+  return row?.id;
 }

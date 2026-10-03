@@ -3,20 +3,15 @@ import { findOldestCustomer } from '@db/queries/hub/customers';
 import { findLatestOrder } from '@db/queries/hub/orders';
 import { findLatestActiveSubscription } from '@db/queries/hub/subscriptions';
 
-/**
- * WHAT:   OLD Customer API — exports. POST /CSV answers with CSV text right away;
- *         POST /export starts a background export (JSON) and answers with its key.
- *         "ids" = only these rows, "exclude" = leave out these columns, "rename" = new column name.
- * FROM:   Postman collection "circuly_customers API (2025-01) Main" → V1_5 / CSV. New in Playwright.
- * NEEDS:  an order, a customer and an active subscription of the company (ids are read from the hub db).
- * CHANGES DATA: no (the background export only writes an export file).
- */
+// Customer API - exports. POST /CSV answers with the CSV text right away,
+// POST /export starts a background export and answers with its key.
+// ids = only these rows, exclude = leave out these columns, rename = new column name.
+// Needs: an order, a customer and an active subscription.
+// Changes data: no (the export only writes a file).
 
-/**
- * CHECK: the answer is a CSV download (status 200 + "Content-Disposition: attachment; filename=<name>.csv").
- * The API sends Content-Type "text/html" instead of "text/csv" (API bug, 2026-09-29) → not a failure,
- * but shown as an INFO note in the report so the bug stays visible (owner's choice).
- */
+// The answer must be a CSV download: status 200 and a filename="<name>.csv" header.
+// The API sends Content-Type text/html instead of text/csv. That is a known API bug, so it is
+// not a failure, only an INFO note in the report.
 function expectCsvDownload(response: { status(): number; headers(): Record<string, string> }, fileName: string) {
   expect(response.status()).toBe(200);
   expect(response.headers()['content-disposition'], 'download header').toContain(`filename="${fileName}"`);
@@ -26,7 +21,7 @@ function expectCsvDownload(response: { status(): number; headers(): Record<strin
   }
 }
 
-/** The first line of a CSV = the column names. */
+// first line of the CSV = the column names
 function columnsOf(csv: string) {
   return csv.split('\n')[0].split(',');
 }
@@ -96,7 +91,7 @@ test.describe('Customer API - exports', () => {
   });
 
   test('exports transactions as CSV', async ({ customerApi }) => {
-    // ACTION: POST /CSV — the 3 newest transactions
+    // ACTION: POST /CSV - the 3 newest transactions
     const response = await customerApi.exports.csv({ type: 'transactions', limit: 3 });
 
     // CHECK: a CSV download with transaction columns and at least one row
@@ -108,7 +103,7 @@ test.describe('Customer API - exports', () => {
   });
 
   test('exports recurring payments as CSV', async ({ customerApi }) => {
-    // ACTION: POST /CSV — the 3 newest recurring payments
+    // ACTION: POST /CSV - the 3 newest recurring payments
     const response = await customerApi.exports.csv({ type: 'recurring-payments', limit: 3 });
 
     // CHECK: a CSV download with at least one row
@@ -119,7 +114,7 @@ test.describe('Customer API - exports', () => {
   });
 
   test('starts a JSON export of invoices', async ({ customerApi }) => {
-    // ACTION: POST /export — invoices of January 2025 as JSON
+    // ACTION: POST /export - invoices of January 2025 as JSON
     const response = await customerApi.exports.start({
       type: 'invoices',
       limit: 10,

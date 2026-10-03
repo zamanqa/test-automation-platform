@@ -1,11 +1,10 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/** Hub → Order detail. Selectors carried over from hub-e2e-automation OrderDetailPage.js. */
+/** Hub → order page. */
 export class OrderDetailPage {
   readonly productRows: Locator;
   readonly successMessage: Locator;
 
-  /** Created per test by the fixture of the same name (src/fixtures/index.ts); `page` = Playwright's browser tab. */
   constructor(private readonly page: Page) {
     this.productRows = page.locator('tbody tr.v-data-table__tr');
     this.successMessage = page.locator('p', { hasText: 'Successfully requested!' });

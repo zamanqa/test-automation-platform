@@ -4,27 +4,29 @@ import { payments } from '@data/static/checkout';
 import { getInvoiceNumber, isInvoicePaidByNumber, setInvoicePaidByNumber } from '@db/queries/hub/invoices';
 import { findTransactionsOfInvoice, setTransactionStatusOfInvoice } from '@db/queries/hub/transactions';
 
-/**
- * WHAT:   CSS "Outstanding amount": a charged invoice of the normal subscription is made unpaid in the DB
- *         (invoices.paid = false, its transactions status = failed) → the CSS dashboard shows "Outstanding amount"
- *         → click → Payment page → pay by card → the invoice is paid again.
- * NEEDS:  .auth/css-data.json from 01-css-login.spec.ts (invoice ids of the 2 charged normal payments); hub login (hub-setup).
- * CHANGES DATA: yes — invoices.paid + transactions.status of one invoice, then a Stripe test card payment.
- */
+// CSS "Outstanding amount": a charged invoice is made unpaid in the database
+// (paid = false, transaction status = failed) → the dashboard shows "Outstanding amount"
+// → click → Payment page → pay by card → the invoice is paid again.
+// Needs: .auth/css-data.json from 01-css-login.spec.ts.
+// Changes data: paid flag and transaction status of one invoice, then a Stripe test card payment.
 test.describe('CSS - outstanding amount', () => {
   test('an unpaid invoice shows as outstanding amount and can be paid by card', async ({ cssPage, db }) => {
-    // SETUP: invoice number of the first charged invoice ← hub db
+    // SETUP: invoice number of the first charged invoice
     const data = readCssData();
-    test.skip(!data, 'no .auth/css-data.json — run 01-css-login.spec.ts first');
+    test.skip(!data, 'no .auth/css-data.json, run 01-css-login.spec.ts first');
     const invoiceNumber = await getInvoiceNumber(db.hub, data!.normal.invoiceIds[0]);
     test.info().annotations.push({ type: 'invoice', description: `${data!.normal.invoiceIds[0]} = ${invoiceNumber}` });
 
-    // SETUP: the invoice has a transaction (INFO only: its status before the change)
+    // SETUP: the invoice has a transaction (its status is shown in the report)
     const transactions = await findTransactionsOfInvoice(db.hub, invoiceNumber);
     expect(transactions.length, `transactions of ${invoiceNumber}`).toBeGreaterThan(0);
-    test.info().annotations.push({ type: 'transactions before', description: transactions.map((t) => `${t.transaction_id} ${t.status}`).join(', ') });
+    const statusBefore: string[] = [];
+    for (const transaction of transactions) {
+      statusBefore.push(`${transaction.transaction_id} ${transaction.status}`);
+    }
+    test.info().annotations.push({ type: 'transactions before', description: statusBefore.join(', ') });
 
-    // SETUP: make it unpaid → invoices.paid = false, transactions.status = failed
+    // SETUP: make it unpaid
     await setInvoicePaidByNumber(db.hub, invoiceNumber, false);
     await setTransactionStatusOfInvoice(db.hub, invoiceNumber, 'failed');
 
@@ -48,7 +50,7 @@ test.describe('CSS - outstanding amount', () => {
     await expect(cssPage.page.getByText('Amount due')).toBeVisible();
     await cssPage.payByCard(payments.stripeCard);
 
-    // CHECK (DB): the invoice is paid again
+    // CHECK: the invoice is paid again
     await expect
       .poll(() => isInvoicePaidByNumber(db.hub, invoiceNumber), { message: `paid of invoice ${invoiceNumber}`, timeout: 60_000 })
       .toBe(true);

@@ -4,7 +4,7 @@ import type { UnifiedApiClient } from '../UnifiedApiClient';
 export class InvoicesEndpoint {
   constructor(private readonly api: UnifiedApiClient) {}
 
-  /** GET {base}/{version}/{companyId}/paginated-invoices. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /paginated-invoices */
   list() {
     return this.api.company('GET', '/paginated-invoices');
   }
@@ -14,12 +14,12 @@ export class InvoicesEndpoint {
     return this.api.company('GET', `/invoices/${invoiceNumber}`);
   }
 
-  /** POST {base}/{version}/{companyId}/invoices/{invoiceNumber}/settle — params: invoiceNumber: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /invoices/{invoiceNumber}/settle */
   settle(invoiceNumber: string) {
     return this.api.company('POST', `/invoices/${invoiceNumber}/settle`);
   }
 
-  /** POST {base}/{version}/{companyId}/invoices/{invoiceId}/refund — params: invoiceId: string, body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /invoices/{invoiceId}/refund */
   refund(invoiceId: string, body: unknown) {
     return this.api.company('POST', `/invoices/${invoiceId}/refund`, { data: body });
   }

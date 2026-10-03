@@ -1,10 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/customer-api/orders/orders.spec.ts
-//   tests/hub-e2e/cron/cron.spec.ts
-//   tests/unified-api/orders/orders.spec.ts
-
 /**
  * Cron and queue control on the hub database.
  *
@@ -26,7 +21,7 @@ export const RECURRING_PAYMENT_QUEUES = ['rp', 'invoiceCharge'];
 /**
  * Turns on every cron whose command works on one of these queues ("... --queue=rp ...").
  * By queue name, not the full command text: the hub changes the worker commands now and then
- * (2026-09-28: the rp worker is "php artisan ... --queue=rp" and "python queue-repeater.py ... --queue=rp --company-ids=...").
+ * (e.g. the rp worker is "php artisan ... --queue=rp" and "python queue-repeater.py ... --queue=rp --company-ids=...").
  */
 export function enableQueueWorkers(hub: Database, queues: string[]) {
   return hub.query(
@@ -36,7 +31,7 @@ export function enableQueueWorkers(hub: Database, queues: string[]) {
   );
 }
 
-/** Turns EVERY hub cron on (active = true, running = false). Global change — pair with resetAllCrons in cleanup. */
+/** Turns EVERY hub cron on (active = true, running = false). Global change - pair with resetAllCrons in cleanup. */
 export function enableAllCrons(hub: Database) {
   return hub.query('UPDATE public.cms_crons SET active = true, running = false');
 }
@@ -52,7 +47,7 @@ export function deleteStaleJobsOf(hub: Database, queues: string[]) {
   return hub.query('DELETE FROM public.jobs WHERE queue = ANY($1) AND attempts = 0', [queues]);
 }
 
-/** Turns EVERY hub cron off. Global change — always add resetAllCrons to cleanup right after. */
+/** Turns EVERY hub cron off. Global change - always add resetAllCrons to cleanup right after. */
 export function disableAllCrons(hub: Database) {
   return hub.query('UPDATE public.cms_crons SET active = false, running = false');
 }
@@ -64,7 +59,7 @@ export function enableCrons(hub: Database, commands: string[]) {
 
 /**
  * Undo step after a cron test: turns EVERY hub cron back ON (active = true, running = false).
- * Owner's rule (2026-09-28): never leave cms_crons disabled after testing.
+ * Rule: never leave cms_crons disabled after testing.
  */
 export function resetAllCrons(hub: Database) {
   return enableAllCrons(hub);

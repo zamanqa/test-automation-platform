@@ -2,7 +2,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { testEmail } from '@data/random';
 import type { Cart, CheckoutAddress } from '@data/static/checkout';
 
-/** Wait 5 seconds after payment "Select" and after "Pay" (owner's request) so the payment provider can finish. */
+/** Wait 5 seconds after payment "Select" and after "Pay", so the payment provider can finish. */
 export const PAYMENT_PAUSE_MS = 5_000;
 
 /** All amounts of the cart summary (left side of the checkout), in €. */
@@ -327,7 +327,7 @@ export class CheckoutPage {
     return (await orderNumber.innerText()).trim();
   }
 
-  /** Waits 30 seconds so the new order can reach the hub database (owner's request). */
+  /** Waits 30 seconds so the new order can reach the hub database. */
   async waitForOrderToReachHub() {
     await this.page.waitForTimeout(30_000);
   }

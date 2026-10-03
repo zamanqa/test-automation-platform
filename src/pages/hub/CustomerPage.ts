@@ -1,9 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/**
- * Hub → Customers list and customer detail page (/en/cms/customers/{cus_...}).
- * Created per test by the fixture `customerPage` (src/fixtures/index.ts); `page` = Playwright's browser tab.
- */
+/** Hub → Customers list and customer page (/en/cms/customers/{cus_...}). */
 export class CustomerPage {
   readonly searchInput: Locator;
   readonly rows: Locator;
@@ -110,7 +107,7 @@ export class CustomerPage {
   }
 
   /**
-   * "Login CSS", tried twice (owner: the first click sometimes does not log in → back to the
+   * "Login CSS", tried twice (the first click sometimes does not log in → back to the
    * customer page and click again). customerUrl = the hub customer page (full URL).
    */
   async loginToSelfServicePortalWithRetry(customerUrl: string) {

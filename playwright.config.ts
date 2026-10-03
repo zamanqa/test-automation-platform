@@ -45,7 +45,7 @@ const RUN_DIR = process.env.REPORT_RUN_DIR;
  * default; add --headed or use `npm run test:ui` while writing tests.
  * API suites start no browser at all.
  *
- * Every suite runs one test at a time (workers: 1), like Cypress did: tests pick
+ * Every suite runs one test at a time (workers: 1): tests pick
  * "the latest open order / active subscription" from the shared dev database, so two
  * tests running at once could act on the same row. Raise a suite's workers once its
  * tests create their own data. Exceptions: checkout-e2e (one cart per shop) and customer-api
@@ -83,7 +83,7 @@ export default defineConfig({
     // ---------- Hub ----------
     // Login flow: 'hub-setup' runs tests/hub-e2e/auth.setup.ts first (dependencies below),
     // which logs in via LoginPage and saves the browser session to HUB_AUTH_STATE.
-    // Every 'hub-e2e' test then starts from that file (storageState) — already logged in.
+    // Every 'hub-e2e' test then starts from that file (storageState) - already logged in.
     {
       name: 'hub-setup',
       testMatch: /hub-e2e[\\/]auth\.setup\.ts/,
@@ -130,7 +130,7 @@ export default defineConfig({
     },
 
     // ---------- POS + CSS (UI) ----------
-    // The full login URLs (with ?company_id=) are in .env: POS_URL / CSS_URL — tests open them with page.goto(env.pos.POS_URL).
+    // The full login URLs (with ?company_id=) are in .env: POS_URL / CSS_URL - tests open them with page.goto(env.pos.POS_URL).
     {
       name: 'pos-e2e',
       workers: 1,

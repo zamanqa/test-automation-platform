@@ -1,16 +1,12 @@
-// test, expect  ← src/fixtures/index.ts
-// find...       ← src/db/queries/hub/products.ts (products + product_variants tables)
 import { test, expect } from '@fixtures';
 import { findLatestActiveProduct, findLatestActiveVariant, findVariant } from '@db/queries/hub/products';
 
-/**
- * WHAT:   Unified Customer API — /products and variants (read only).
- * FROM:   unified-customer-api cypress/e2e/customer-api/11-product/product-variants.cy.js (4 tests).
- * NEEDS:  active products/variants.   CHANGES DATA: no.
- */
+// Unified API - /products and variants (read only).
+// Needs: active products/variants.
+// Changes data: no.
 test.describe('Unified API - products and variants', () => {
   test('returns a list of products', async ({ unifiedApi, db }) => {
-    // SETUP: make sure the company has an active product (throws if not) ← hub db
+    // SETUP: make sure the company has an active product (throws if not)
     await findLatestActiveProduct(db.hub, await unifiedApi.companyId());
 
     // ACTION: GET /products
@@ -33,7 +29,7 @@ test.describe('Unified API - products and variants', () => {
   });
 
   test('returns the variants of a product', async ({ unifiedApi, db }) => {
-    // SETUP: newest active variant → its product_id ← hub db
+    // SETUP: newest active variant → its product_id
     const variant = await findLatestActiveVariant(db.hub, await unifiedApi.companyId());
 
     // ACTION: GET /products/{product_id}/variants

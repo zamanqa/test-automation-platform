@@ -8,11 +8,15 @@ export class NotesEndpoint {
 
   /** All notes, optionally filtered, e.g. list({ order_id }). */
   list(filter: NoteFilter = {}) {
-    const params = Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== undefined)) as Record<string, string>;
+    // send only the filters that are set
+    const params: Record<string, string> = {};
+    for (const [key, value] of Object.entries(filter)) {
+      if (value !== undefined) params[key] = value;
+    }
     return this.api.company('GET', '/notes', { params });
   }
 
-  /** GET {base}/{version}/{companyId}/notes/{noteId} — params: noteId: string | number. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /notes/{noteId} */
   get(noteId: string | number) {
     return this.api.company('GET', `/notes/${noteId}`);
   }

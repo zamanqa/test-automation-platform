@@ -1,7 +1,3 @@
-// dayjs, faker   = dates and random values
-// test, expect   ← src/fixtures/index.ts
-// ...Payload, subscriptionIdOf ← src/data/payloads/customer-api/subscriptions.ts
-// find... / set... ← src/db/queries/hub/subscriptions.ts
 import dayjs from 'dayjs';
 import { faker } from '@faker-js/faker';
 import { test, expect } from '@fixtures';
@@ -24,25 +20,21 @@ import {
   type SubscriptionRow,
 } from '@db/queries/hub/subscriptions';
 
-/**
- * WHAT:   OLD Customer API — /subscriptions endpoints.
- * FROM:   cus-api cypress/e2e/customer-api/05-subscriptions/subscriptions.cy.js (10 tests).
- * NEEDS:  an active subscription; paid checkout items without subscription (else create tests skipped).
- * CHANGES DATA: yes — creates subscriptions, end date / serial / note / auto-renew / additional_infos (put back),
- *         marks one normal subscription as bought out (not undone),
- *         sets one to 'ended' in the db then reactivates it.
- * Differences to the Unified API: dates as DD-MM-YYYY, reactivate is POST .../reactivate,
- * auto-renew is PUT .../auto-renew, plus a "add note" test.
- */
+// Customer API - /subscriptions endpoints.
+// Needs: an active subscription; paid checkout items without subscription (else the create tests are skipped).
+// Changes data: creates subscriptions; sets end date, serial, note, auto renew and additional_infos (put back);
+// marks one normal subscription as bought out (not undone); sets one to 'ended' and reactivates it.
+// Not the same as the Unified API: dates are DD-MM-YYYY, reactivate and auto-renew have their own URL,
+// and there is an extra note test.
 test.describe.configure({ mode: 'default' });
 
-/** Today as DD-MM-YYYY — the format this API expects for subscription_start. */
+// today as DD-MM-YYYY, the format this API wants for subscription_start
 const today = () => dayjs().format('DD-MM-YYYY');
 
 test.describe('Customer API - subscriptions', () => {
-  let subscription: SubscriptionRow; // set in beforeEach
+  let subscription: SubscriptionRow;
 
-  // Before each test: newest active subscription. companyId ← .env CUSTOMER_API_COMPANY_ID
+  // newest active subscription
   test.beforeEach(async ({ db, customerApi }) => {
     subscription = await findLatestActiveSubscription(db.hub, customerApi.companyId);
   });
@@ -66,24 +58,24 @@ test.describe('Customer API - subscriptions', () => {
   });
 
   test('creates a consumable subscription for an order item', async ({ customerApi, db }) => {
-    // SETUP: paid monthly consumable checkout item without subscription (else skipped)
+    // SETUP: paid monthly consumable checkout item without subscription
     const item = await findPaidCheckoutItemWithoutSubscription(db.hub, customerApi.companyId, 'consumable');
     test.skip(!item, 'No paid consumable checkout item without a subscription');
 
     // ACTION: POST /subscriptions
     const response = await customerApi.subscriptions.create(consumableSubscriptionPayload(item!, today()));
 
-    // CHECK: poll the db (max 30s) for id "order_orderItem_sku" ← subscriptionIdOf(). Was cy.wait(10000).
+    // CHECK: within 30 s the subscription is in the database
     expect([200, 201]).toContain(response.status());
     await expect.poll(() => findSubscription(db.hub, subscriptionIdOf(item!)), { timeout: 30_000 }).toBeDefined();
   });
 
   test('creates a normal subscription with bundle data for an order item', async ({ customerApi, db }) => {
-    // SETUP: paid monthly NORMAL checkout item without subscription (else skipped)
+    // SETUP: paid monthly normal checkout item without subscription
     const item = await findPaidCheckoutItemWithoutSubscription(db.hub, customerApi.companyId, 'normal');
     test.skip(!item, 'No paid normal checkout item without a subscription');
 
-    // ACTION: POST /subscriptions with bundle_data (bundle entry id ← item.item_id)
+    // ACTION: POST /subscriptions with bundle_data
     const response = await customerApi.subscriptions.create(bundleSubscriptionPayload(item!, today()));
 
     // CHECK: as above
@@ -92,7 +84,7 @@ test.describe('Customer API - subscriptions', () => {
   });
 
   test('sets real_end_date', async ({ customerApi, db }) => {
-    // SETUP: active normal subscription without end date; new date = today + 5..10 months
+    // SETUP: active normal subscription without end date; new end date in 5-10 months
     const target = await findActiveNormalSubscriptionWithoutEnd(db.hub, customerApi.companyId);
     test.skip(!target, 'No active normal subscription without an end date');
     const endDate = dayjs().add(faker.number.int({ min: 5, max: 10 }), 'month').format('YYYY-MM-DD');
@@ -116,14 +108,14 @@ test.describe('Customer API - subscriptions', () => {
       additional_infos: { Tracking1: trackingNumber },
     });
 
-    // CHECK: the value is saved in the hub db
+    // CHECK: the value is saved
     expect(response.status()).toBe(200);
     const after = await findQuantityAndAdditionalInfos(db.hub, subscription.subscription_id);
     expect(after.additional_infos).toMatchObject({ Tracking1: trackingNumber });
   });
 
   test('adds a note to a subscription', async ({ customerApi }) => {
-    // ACTION: POST /subscriptions/{id}/notes — fixed note ← subscriptionNotePayload()
+    // ACTION
     const response = await customerApi.subscriptions.addNote(subscription.subscription_id, subscriptionNotePayload());
 
     // CHECK
@@ -156,23 +148,30 @@ test.describe('Customer API - subscriptions', () => {
     expect((await findSubscription(db.hub, subscription.subscription_id))?.status).toBe('active');
   });
 
-  // Runs twice: autoRenew = true, then false (were 2 Cypress tests)
-  for (const autoRenew of [true, false]) {
-    test(`turns auto_renew ${autoRenew ? 'on' : 'off'}`, async ({ customerApi, db }) => {
-      // ACTION: PUT /subscriptions/{id}/auto-renew { auto_renew }
-      const response = await customerApi.subscriptions.setAutoRenew(subscription.subscription_id, autoRenew);
+  test('turns auto_renew on', async ({ customerApi, db }) => {
+    // ACTION
+    const response = await customerApi.subscriptions.setAutoRenew(subscription.subscription_id, true);
 
-      // CHECK
-      expect(response.status()).toBe(200);
-      expect(await response.json()).toMatchObject({ success: true, message: 'Updated' });
-      expect((await findSubscription(db.hub, subscription.subscription_id))?.auto_renew).toBe(autoRenew);
-    });
-  }
+    // CHECK: API message, and auto_renew is true in the database
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, message: 'Updated' });
+    expect((await findSubscription(db.hub, subscription.subscription_id))?.auto_renew).toBe(true);
+  });
+
+  test('turns auto_renew off', async ({ customerApi, db }) => {
+    // ACTION
+    const response = await customerApi.subscriptions.setAutoRenew(subscription.subscription_id, false);
+
+    // CHECK: API message, and auto_renew is false in the database
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, message: 'Updated' });
+    expect((await findSubscription(db.hub, subscription.subscription_id))?.auto_renew).toBe(false);
+  });
 });
 
 test.describe('Customer API - subscription actions', () => {
   test('marks a normal subscription as bought out and stops its payments', async ({ customerApi, db }) => {
-    // SETUP: newest active normal subscription that has an asset (else skipped). Not undone: it stays bought out.
+    // SETUP: newest active normal subscription that has an asset. It stays bought out.
     const subscription = await findActiveNormalSubscriptionWithAsset(db.hub, customerApi.companyId);
     test.skip(!subscription, 'No active normal subscription with an asset');
     const subscriptionId = subscription!.subscription_id;
@@ -180,7 +179,7 @@ test.describe('Customer API - subscription actions', () => {
     // ACTION: PUT /subscriptions/{id} { action: 'bought_out', delete_rps: true }
     const response = await customerApi.subscriptions.update(subscriptionId, { action: 'bought_out', delete_rps: true });
 
-    // CHECK: answer; in the db: status 'manual bought out', end date set, no open recurring payments left
+    // CHECK: status 'manual bought out', end date set, no open recurring payments left
     expect(response.status()).toBe(200);
     expect(await response.json()).toEqual({ success: true, message: 'Updated' });
     const after = await findSubscription(db.hub, subscriptionId);

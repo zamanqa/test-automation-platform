@@ -1,10 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { testName } from '@data/random';
 
-// USED BY (files that import this one):
-//   tests/customer-api/products/products.spec.ts
-
-/** Request bodies for /products and /variants on the Customer API. Values from cus-api product-variants.cy.js. */
+/** Request bodies for /products and /variants on the Customer API. */
 
 const PICTURE = 'https://www.dbu.de/inc/phpThumb/phpThumb.php?src=/nadi/media/230921040008_303001.png';
 
@@ -55,7 +52,7 @@ export function createVariantPayload() {
   };
 }
 
-/** Same body as the Cypress test, with a random stock of 1-100. */
+/** Variant update with a random stock of 1-100. */
 export function updateVariantStockPayload() {
   return {
     allow_order_create: true,

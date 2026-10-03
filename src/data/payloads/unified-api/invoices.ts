@@ -1,6 +1,3 @@
-// USED BY (files that import this one):
-//   tests/unified-api/invoices/invoices.spec.ts
-
 /** Request bodies for /invoices. Values from unified-customer-api invoicePayloads.js. */
 
 /** Partial refund of 0.10 as one free-text product line. */

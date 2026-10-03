@@ -1,5 +1,3 @@
-// test, expect  ← src/fixtures/index.ts
-// find...Asset  ← src/db/queries/hub/product-trackings.ts (an "asset" = one physical item with a serial number)
 import { test, expect } from '@fixtures';
 import {
   findAsset,
@@ -8,14 +6,11 @@ import {
   findRentedOutAssetOfActiveSubscription,
 } from '@db/queries/hub/product-trackings';
 
-/**
- * WHAT:   Unified Customer API — /product-tracking (assets by serial number).
- * FROM:   unified-customer-api cypress/e2e/customer-api/10-product-tracking/product-tracking.cy.js (4 tests).
- * NEEDS:  rented-out assets of active subscriptions.
- * CHANGES DATA: yes — sends one asset to repair (its recurring payments are deleted),
- *         puts one 'to repair' asset back in stock.
- * The stock test needs an asset in 'to repair'; the repair test before it creates one.
- */
+// Unified API - /product-tracking (assets by serial number).
+// Needs: rented-out assets of active subscriptions.
+// Changes data: sends one asset to repair (its recurring payments are deleted),
+// puts one 'to repair' asset back in stock.
+// The stock test needs an asset in 'to repair'; the repair test before it creates one.
 test.describe.configure({ mode: 'default' });
 
 test.describe('Unified API - product tracking', () => {
@@ -29,7 +24,7 @@ test.describe('Unified API - product tracking', () => {
   });
 
   test('fetches an asset by serial number', async ({ unifiedApi, db }) => {
-    // SETUP: newest asset with location_status 'rented out' ← hub db
+    // SETUP: newest asset with location_status 'rented out'
     const companyId = await unifiedApi.companyId();
     const asset = await findLatestRentedOutAsset(db.hub, companyId);
 
@@ -43,7 +38,7 @@ test.describe('Unified API - product tracking', () => {
   });
 
   test('sends a rented-out asset to repair', async ({ unifiedApi, db }) => {
-    // SETUP: rented-out asset that belongs to an ACTIVE subscription ← hub db
+    // SETUP: rented-out asset that belongs to an ACTIVE subscription
     const companyId = await unifiedApi.companyId();
     const asset = await findRentedOutAssetOfActiveSubscription(db.hub, companyId);
 

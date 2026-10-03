@@ -1,15 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   tests/css-e2e/02-outstanding-amount.spec.ts
-//   tests/customer-api/invoices/invoices.spec.ts
-//   tests/customer-api/payments/payments.spec.ts
-//   tests/customer-api/transactions/transactions.spec.ts
-//   tests/hub-e2e/cron/cron.spec.ts
-//   tests/unified-api/invoices/invoices.spec.ts
-//   tests/unified-api/payments/payments.spec.ts
-//   tests/unified-api/transactions/transactions.spec.ts
-
 /** Queries on transactions. */
 
 export type TransactionRow = { transaction_id: string; invoice_number: string | null; type: string; status: string; order_id: string | null };
@@ -55,7 +45,7 @@ export function findRefundOf(hub: Database, transactionId: string) {
 
 /**
  * Latest one-time-payment transaction of the company that owns the order.
- * (Same join as the Cypress query: by company, not by order — kept as-is.)
+ * (Joined by company, not by order.)
  */
 export function findLatestOneTimePayment(hub: Database, orderId: string) {
   return hub.maybeOne<{ invoice_number: string; type: string }>(

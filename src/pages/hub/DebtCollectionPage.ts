@@ -1,9 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-/**
- * Hub → Debt collection (claims sent to Debtist): list + claim detail (/en/cms/debt-collection/{claim_id}).
- * Created per test by the fixture `debtCollectionPage` (src/fixtures/index.ts); `page` = Playwright's browser tab.
- */
+/** Hub → Debt collection (claims sent to Debtist): list and claim page (/en/cms/debt-collection/{claim_id}). */
 export class DebtCollectionPage {
   readonly rows: Locator;
 
@@ -53,7 +50,7 @@ export class DebtCollectionPage {
     const dialog = this.dialog();
     await expect(dialog.getByRole('heading', { name: 'Upload file' })).toBeVisible();
     await dialog.locator('input[type="file"]').setInputFiles(file);
-    // wait for the upload request itself — its answer tells whether the upload really worked
+    // wait for the upload request itself - its answer tells whether the upload really worked
     const upload = this.page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/uploads'), { timeout: 60_000 });
     await dialog.getByRole('button', { name: 'Submit' }).click();
     const response = await upload;

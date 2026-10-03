@@ -1,10 +1,7 @@
 import { test, expect } from '@fixtures';
 
-/**
- * WHAT:   OLD Customer API — is it up? GET /ping and GET /version.
- * FROM:   Postman collection "circuly_customers API (2025-01) Main": Ping, Version. New in Playwright.
- * CHANGES DATA: no.
- */
+// Customer API - is it up? GET /ping and GET /version.
+// Changes data: no.
 test.describe('Customer API - health', () => {
   test('ping answers pong', async ({ customerApi }) => {
     // ACTION: GET /ping

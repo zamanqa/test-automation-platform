@@ -1,18 +1,5 @@
 import type { Database } from '@db/connection';
 
-// USED BY (files that import this one):
-//   src/data/payloads/unified-api/subscriptions.ts
-//   tests/css-e2e/01-css-login.spec.ts
-//   tests/css-e2e/99-cancel-and-report.spec.ts
-//   tests/customer-api/css/css.spec.ts
-//   tests/customer-api/subscriptions/subscriptions.spec.ts
-//   tests/hub-e2e/orders/order-detail.spec.ts
-//   tests/hub-e2e/returns-and-repairs/return-and-repair.spec.ts
-//   tests/hub-e2e/subscriptions/subscription-actions.spec.ts
-//   tests/hub-e2e/subscriptions/subscription-list.spec.ts
-//   tests/unified-api/css/css.spec.ts
-//   tests/unified-api/subscriptions/subscriptions.spec.ts
-
 /** Queries on subscriptions, and on order items that can become subscriptions. */
 
 export type SubscriptionRow = {
@@ -141,7 +128,7 @@ export function findSubscriptionRow(hub: Database, subscriptionId: string) {
 
 /**
  * Latest active normal subscription from a card/PayPal checkout order, longer than
- * 3 cycles and not the parent of another subscription — safe to run menu actions on.
+ * 3 cycles and not the parent of another subscription - safe to run menu actions on.
  */
 export function findSubscriptionForActions(hub: Database, companyId: string) {
   return hub.one<{ subscription_id: string }>(
@@ -284,7 +271,7 @@ export function setSubscriptionTypeAndQuantity(hub: Database, subscriptionId: st
   ]);
 }
 
-/** Quantity and additional_infos of a subscription — read before a test changes them. Throws if none. */
+/** Quantity and additional_infos of a subscription - read before a test changes them. Throws if none. */
 export function findQuantityAndAdditionalInfos(hub: Database, subscriptionId: string) {
   return hub.one<{ quantity: number; additional_infos: Record<string, string> | null }>(
     'SELECT quantity, additional_infos FROM public.subscriptions WHERE subscription_id = $1',
@@ -303,7 +290,7 @@ export function setSubscriptionStatus(hub: Database, subscriptionId: string, sta
   return hub.query('UPDATE public.subscriptions SET status = $2 WHERE subscription_id = $1', [subscriptionId, status]);
 }
 
-/** Deletes a subscription row (not used by tests yet; kept from the Cypress helpers). */
+/** Deletes a subscription row (not used by tests yet). */
 export function deleteSubscription(hub: Database, companyId: string, subscriptionId: string) {
   return hub.query('DELETE FROM public.subscriptions WHERE subscription_id = $1 AND company_id = $2', [subscriptionId, companyId]);
 }
@@ -402,8 +389,8 @@ export async function countBuyoutInvoices(hub: Database, subscriptionId: string)
 }
 
 /**
- * Undoes a CSS cancellation (test setup, owner): status 'active', cancellation_date / cancellation_type /
- * cancellation_reason = NULL, cancelled_by_customer = false. Only status is not enough — the CSS hides the actions.
+ * Undoes a CSS cancellation (test setup): status 'active', cancellation_date / cancellation_type /
+ * cancellation_reason = NULL, cancelled_by_customer = false. Only status is not enough - the CSS hides the actions.
  */
 export function resetCssCancellation(hub: Database, subscriptionId: string) {
   return hub.query(

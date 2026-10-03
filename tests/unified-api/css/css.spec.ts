@@ -1,7 +1,3 @@
-// test, expect           ← src/fixtures/index.ts
-// Database (type only)   ← src/db/connection.ts (used in the helper's parameter type)
-// ...Payload, inDays     ← src/data/payloads/shared/css.ts (CSS request bodies; inDays(n) = date n days ahead)
-// find...                ← src/db/queries/hub/{products,recurring-payments,subscriptions}.ts
 import { test, expect } from '@fixtures';
 import type { Database } from '@db/connection';
 import {
@@ -19,24 +15,21 @@ import {
   findStripeBuyoutSubscription,
 } from '@db/queries/hub/subscriptions';
 
-/**
- * WHAT:   Unified Customer API — Customer Self Service (/css/api/...): what an end customer can do.
- * FROM:   unified-customer-api cypress/e2e/customer-api/14-css/css.cy.js (8 tests).
- * NEEDS:  active consumable + normal subscriptions, an open delivery, a Stripe subscription, stock.
- * CHANGES DATA: yes — reports an issue, moves a delivery, changes frequency, swaps bundle,
- *         CANCELS a subscription, BUYS OUT a subscription, creates an order.
- * The customer email used is CSS_CUSTOMER_EMAIL in src/data/payloads/shared/css.ts.
- */
+// Unified API - customer self service (/css/api/...): what an end customer can do.
+// Needs: active consumable and normal subscriptions, an open delivery, a Stripe subscription, stock.
+// Changes data: reports an issue, moves a delivery, changes frequency, swaps a bundle,
+// cancels a subscription, buys out a subscription, creates an order.
+// The customer is CSS_CUSTOMER_EMAIL (src/data/payloads/shared/css.ts).
 test.describe.configure({ mode: 'default' });
 
-/** Latest active consumable subscription — the one most CSS actions run on. */
+// latest active consumable subscription, most CSS actions use it
 async function consumable(hub: Database, companyId: string) {
   return (await findActiveSubscriptionOfType(hub, companyId, 'consumable')).subscription_id;
 }
 
 test.describe('Unified API - customer self service', () => {
   test('returns the deliveries of a subscription', async ({ unifiedApi, db }) => {
-    // SETUP: consumable subscription id ← helper above (hub db)
+    // SETUP
     const subscriptionId = await consumable(db.hub, await unifiedApi.companyId());
 
     // ACTION: GET /css/api/subscriptions/{id}/deliveries
@@ -53,7 +46,7 @@ test.describe('Unified API - customer self service', () => {
     // SETUP
     const subscriptionId = await consumable(db.hub, await unifiedApi.companyId());
 
-    // ACTION: POST /css/api/subscriptions/{id}/report-issue — appointment in 7 days
+    // ACTION: POST /css/api/subscriptions/{id}/report-issue - appointment in 7 days
     const response = await unifiedApi.css.reportIssue(subscriptionId, reportIssuePayload());
 
     // CHECK
@@ -65,7 +58,7 @@ test.describe('Unified API - customer self service', () => {
     // SETUP: first open (unsettled, not invoiced) delivery of an active consumable subscription
     const delivery = await findOpenConsumableDelivery(db.hub, await unifiedApi.companyId());
 
-    // ACTION: PUT /css/api/deliveries/{id}/shipping-date   new date ← inDays(1) = tomorrow
+    // ACTION: move it to tomorrow
     const response = await unifiedApi.css.updateShippingDate(delivery.id, inDays(1));
 
     // CHECK
@@ -103,7 +96,7 @@ test.describe('Unified API - customer self service', () => {
     // SETUP: the OLDEST active normal subscription
     const subscription = await findActiveSubscriptionOfType(db.hub, await unifiedApi.companyId(), 'normal', { oldest: true });
 
-    // ACTION: POST /css/api/subscriptions/{id}/cancel — pickup in 10 days
+    // ACTION: POST /css/api/subscriptions/{id}/cancel - pickup in 10 days
     const response = await unifiedApi.css.cancel(subscription.subscription_id, cancelSubscriptionPayload());
 
     // CHECK
@@ -123,11 +116,11 @@ test.describe('Unified API - customer self service', () => {
   });
 
   test('lets a customer order more of a consumable', async ({ unifiedApi, db }) => {
-    // SETUP: paid consumable order item whose variant is in stock → parent_order_id + variant_id
+    // SETUP: paid consumable order item whose variant is in stock
     const item = await findReorderableConsumableItem(db.hub, await unifiedApi.companyId());
     test.skip(!item, 'No paid consumable order item with an in-stock variant in the database');
 
-    // ACTION: POST /css/api/orders/subscriptions — 2 more, monthly, starting in 30 days
+    // ACTION: POST /css/api/orders/subscriptions - 2 more, monthly, starting in 30 days
     const response = await unifiedApi.css.createOrder(customerOrderPayload(item!));
 
     // CHECK: 201 CREATED with a new order_id

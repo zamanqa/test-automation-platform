@@ -1,14 +1,7 @@
 import fs from 'node:fs';
 import { CSS_DATA_FILE } from '@config/paths';
 
-// USED BY (files that import this one):
-//   tests/css-e2e/02-outstanding-amount.spec.ts
-//   tests/css-e2e/03-refer-a-friend.spec.ts
-//   tests/css-e2e/04-add-new-product.spec.ts
-//   tests/css-e2e/05-update-payment-method.spec.ts
-//   tests/css-e2e/99-cancel-and-report.spec.ts
-
-/** The CSS test customer written by tests/css-e2e/01-css-login.spec.ts (.auth/css-data.json). */
+// The CSS test customer saved by tests/css-e2e/01-css-login.spec.ts
 export type CssData = {
   orderId: string;
   customerId: string;

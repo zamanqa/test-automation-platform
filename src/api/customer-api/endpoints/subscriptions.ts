@@ -1,40 +1,40 @@
 import type { CustomerApiClient } from '../CustomerApiClient';
 
-/** /subscriptions endpoints of the Customer API. */
+/** /subscriptions endpoints. */
 export class SubscriptionsEndpoint {
   constructor(private readonly api: CustomerApiClient) {}
 
-  /** GET {base}/api/{version}/subscriptions. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /subscriptions */
   list() {
     return this.api.call('GET', '/subscriptions');
   }
 
-  /** GET {base}/api/{version}/subscriptions/{subscriptionId} — params: subscriptionId: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** GET /subscriptions/{subscriptionId} */
   get(subscriptionId: string) {
     return this.api.call('GET', `/subscriptions/${subscriptionId}`);
   }
 
-  /** POST {base}/api/{version}/subscriptions — params: body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /subscriptions */
   create(body: unknown) {
     return this.api.call('POST', '/subscriptions', { data: body });
   }
 
-  /** PUT {base}/api/{version}/subscriptions/{subscriptionId} — params: subscriptionId: string, body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** PUT /subscriptions/{subscriptionId} */
   update(subscriptionId: string, body: unknown) {
     return this.api.call('PUT', `/subscriptions/${subscriptionId}`, { data: body });
   }
 
-  /** POST {base}/api/{version}/subscriptions/{subscriptionId}/notes — params: subscriptionId: string, body: unknown. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /subscriptions/{subscriptionId}/notes */
   addNote(subscriptionId: string, body: unknown) {
     return this.api.call('POST', `/subscriptions/${subscriptionId}/notes`, { data: body });
   }
 
-  /** POST {base}/api/{version}/subscriptions/{subscriptionId}/reactivate — params: subscriptionId: string. Returns Playwright's APIResponse (test checks status/body). */
+  /** POST /subscriptions/{subscriptionId}/reactivate */
   reactivate(subscriptionId: string) {
     return this.api.call('POST', `/subscriptions/${subscriptionId}/reactivate`);
   }
 
-  /** PUT {base}/api/{version}/subscriptions/{subscriptionId}/auto-renew — params: subscriptionId: string, autoRenew: boolean. Returns Playwright's APIResponse (test checks status/body). */
+  /** PUT /subscriptions/{subscriptionId}/auto-renew */
   setAutoRenew(subscriptionId: string, autoRenew: boolean) {
     return this.api.call('PUT', `/subscriptions/${subscriptionId}/auto-renew`, { data: { auto_renew: autoRenew } });
   }

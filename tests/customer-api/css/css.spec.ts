@@ -1,7 +1,3 @@
-// test, expect        ← src/fixtures/index.ts
-// Database (type)     ← src/db/connection.ts
-// ...Payload, inDays  ← src/data/payloads/shared/css.ts (inDays(n) = date n days from today)
-// find...             ← src/db/queries/hub/{products,recurring-payments,subscriptions}.ts
 import { test, expect } from '@fixtures';
 import type { Database } from '@db/connection';
 import {
@@ -20,23 +16,21 @@ import {
   findStripeBuyoutSubscription,
 } from '@db/queries/hub/subscriptions';
 
-/**
- * WHAT:   OLD Customer API — Customer Self Service (/css/...).
- * FROM:   cus-api cypress/e2e/customer-api/14-css/css.cy.js (8 tests).
- * CHANGES DATA: yes — issue report, delivery date, frequency, quantity (put back), bundle swap, CANCEL, BUYOUT, new order.
- * Differences to the Unified API version: delivery moves +5 days (not +1), frequency is
- * weekly/2 with message "frequency / interval" (spaces), variant for the swap need not be active.
- */
+// Customer API - customer self service (/css/...).
+// Changes data: reports an issue, moves a delivery, changes frequency and quantity (put back),
+// swaps a bundle, cancels and buys out a subscription, creates an order.
+// Not the same as the Unified API test: the delivery moves 5 days, the frequency is every 2 weeks,
+// the message has spaces around "/", and the variant for the swap does not need to be active.
 test.describe.configure({ mode: 'default' });
 
-/** Latest active consumable subscription — the one most CSS actions run on. */
+// latest active consumable subscription, most CSS actions use it
 async function consumable(hub: Database, companyId: string) {
   return (await findActiveSubscriptionOfType(hub, companyId, 'consumable')).subscription_id;
 }
 
 test.describe('Customer API - customer self service', () => {
   test('returns the deliveries of a subscription', async ({ customerApi, db }) => {
-    // SETUP: consumable subscription ← helper (companyId ← .env)
+    // SETUP
     const subscriptionId = await consumable(db.hub, customerApi.companyId);
 
     // ACTION: GET /css/subscriptions/{id}/deliveries
@@ -65,7 +59,7 @@ test.describe('Customer API - customer self service', () => {
     // SETUP: open delivery of an active consumable subscription
     const delivery = await findOpenConsumableDelivery(db.hub, customerApi.companyId);
 
-    // ACTION: PUT /css/deliveries/{id}/shipping-date   date ← inDays(5)
+    // ACTION: move it 5 days ahead
     const response = await customerApi.css.updateShippingDate(delivery.id, inDays(5));
 
     // CHECK
@@ -80,7 +74,7 @@ test.describe('Customer API - customer self service', () => {
     // ACTION: PUT /css/subscriptions/{id}/change-frequency → weekly, every 2
     const response = await customerApi.css.changeFrequency(subscriptionId, 'weekly', 2);
 
-    // CHECK — note the spaces around "/" (differs from the Unified API message)
+    // CHECK: note the spaces around "/"
     expect(response.status()).toBe(200);
     expect(await response.json()).toHaveProperty('message', 'Subscription frequency / interval changed.');
   });
@@ -91,17 +85,17 @@ test.describe('Customer API - customer self service', () => {
     const before = await findQuantityAndAdditionalInfos(db.hub, subscriptionId);
     cleanup.add(`quantity back to ${before.quantity}`, () => customerApi.css.changeQuantity(subscriptionId, before.quantity));
 
-    // ACTION: PUT /css/subscriptions/{id}/change-quantity — one more than now
+    // ACTION: PUT /css/subscriptions/{id}/change-quantity - one more than now
     const response = await customerApi.css.changeQuantity(subscriptionId, before.quantity + 1);
 
-    // CHECK: the new quantity is saved in the hub db
+    // CHECK: the new quantity is saved
     expect(response.status()).toBe(200);
     const after = await findQuantityAndAdditionalInfos(db.hub, subscriptionId);
     expect(after.quantity).toBe(before.quantity + 1);
   });
 
   test('swaps the bundle variant of a subscription', async ({ customerApi, db }) => {
-    // SETUP: consumable subscription + newest variant with stock (active or not, as in cus-api)
+    // SETUP: consumable subscription and the newest variant with stock (active or not)
     const subscriptionId = await consumable(db.hub, customerApi.companyId);
     const variant = await findInStockVariant(db.hub, customerApi.companyId, { activeOnly: false });
 
@@ -114,7 +108,7 @@ test.describe('Customer API - customer self service', () => {
   });
 
   test('cancels a subscription', async ({ customerApi, db }) => {
-    // SETUP: OLDEST active normal subscription
+    // SETUP: oldest active normal subscription
     const subscription = await findActiveSubscriptionOfType(db.hub, customerApi.companyId, 'normal', { oldest: true });
 
     // ACTION: POST /css/subscriptions/{id}/cancel
@@ -137,7 +131,7 @@ test.describe('Customer API - customer self service', () => {
   });
 
   test('lets a customer order more of a consumable', async ({ customerApi, db }) => {
-    // SETUP: paid consumable item with stock → parent_order_id + variant_id
+    // SETUP: paid consumable order item whose variant is in stock
     const item = await findReorderableConsumableItem(db.hub, customerApi.companyId);
     test.skip(!item, 'No paid consumable order item with an in-stock variant in the database');
 

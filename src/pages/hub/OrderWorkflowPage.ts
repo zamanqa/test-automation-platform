@@ -1,12 +1,11 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { Card } from '@data/static/checkout';
 
-/** Hub → actions on an order detail page. Selectors carried over from hub-e2e-automation OrderWorkflowPage.js. */
+/** Hub → actions on an order page (the menu, edit customer, tabs). */
 export class OrderWorkflowPage {
   readonly submitButton: Locator;
   readonly notification: Locator;
 
-  /** Created per test by the fixture of the same name (src/fixtures/index.ts); `page` = Playwright's browser tab. */
   constructor(private readonly page: Page) {
     this.submitButton = page.locator('[data-cy="btn-submit"]');
     this.notification = page.locator('[data-test-id="message"]');
@@ -136,10 +135,8 @@ export class OrderWorkflowPage {
     await link.click();
   }
 
-  /**
-   * On the checkout's "Update payment method" page (opened by openPaymentUpdateLink, checkout.…/update-payment-method?order_id=…):
-   * Stripe "Card" tab → card number, expiry, CVC → "Update payment method". card ← payments.stripeCard (owner: always 4242 4242 4242 4242).
-   */
+  // On the checkout "Update payment method" page (opened by openPaymentUpdateLink):
+  // Stripe Card tab → card number, expiry, CVC → "Update payment method". Always card 4242 4242 4242 4242.
   async updatePaymentMethodByCard(card: Card) {
     await expect(this.page).toHaveURL(/\/update-payment-method\?order_id=/, { timeout: 30_000 });
     const stripe = this.page.frameLocator('iframe[title*="Secure payment input frame"]').first();

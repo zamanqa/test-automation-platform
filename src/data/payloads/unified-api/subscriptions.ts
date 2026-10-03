@@ -1,9 +1,6 @@
 import { faker } from '@faker-js/faker';
 import type { OpenSubscriptionItem } from '@db/queries/hub/subscriptions';
 
-// USED BY (files that import this one):
-//   tests/unified-api/subscriptions/subscriptions.spec.ts
-
 /** Request bodies for POST /subscriptions. Values from unified-customer-api subscriptionPayloads.js. */
 
 function base(item: OpenSubscriptionItem, subscriptionStart: string) {
@@ -14,7 +11,7 @@ function base(item: OpenSubscriptionItem, subscriptionStart: string) {
     id: item.order_item_id,
     is_parent: false,
     order_id: item.order_id,
-    // The Cypress payload sends the item's sku as product_id — kept as-is.
+    // the sku is sent as product_id
     product_id: item.sku,
     status: 'active',
     subscription_extension_price: 100,
