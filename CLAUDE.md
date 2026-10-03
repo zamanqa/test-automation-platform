@@ -25,6 +25,8 @@ is the developers' repo — not used here.
 - **Do not commit or push without explicit confirmation.** Remote: https://github.com/zamanqa/test-automation-platform
   (PUBLIC, owner's choice; first push 2026-09-30). Never commit `.env`, `.auth/` or `reports/` (git-ignored).
   Branches: work and commit on `development` (default branch, CI runs only there). Merge development → main ONLY when the owner says so.
+  Commits and PRs are the owner's own work: author = git user (Md Shahiduzzaman), NO Co-Authored-By / "Generated with Claude Code" lines
+  (owner, 2026-10-03; .claude/settings.json attribution is empty). Commit messages: short, plain, written like a person would.
 - The databases are the shared dev databases with full read/write access. Tests
   change real rows; crons are switched off during some tests. Ask before running
   data-changing tests unless the owner has said to proceed.
@@ -81,6 +83,8 @@ Annotated example spec: `tests/unified-api/orders/orders.spec.ts`.
 - Avoid: `expect.poll(async …)`, `flatMap`/`reduce`/`evaluateAll`, `as const`/`satisfies`/`keyof` types, spread tricks,
   `test.step` inside loops, generic helpers with many options. A little repetition is fine.
 - Page objects: small methods named after what the user does; return a locator or one value.
+- Code must read as hand-written (owner, 2026-10-03): normal names, short comments only where they help, no AI-style
+  boilerplate (no "This function…" essays, no emoji in code, no tool or AI mentions in code or comments).
 - The checkout files (src/pages/checkout, tests/checkout-e2e, src/reporters) follow this style — copy them.
 
 ## Comment convention (keep it when adding code — the owner reads the code through these)

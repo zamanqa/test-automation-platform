@@ -6,5 +6,10 @@
       "Read(./reports/**/html-report/**)",
       "Read(./.auth/**)"
     ]
-  }
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false
 }
