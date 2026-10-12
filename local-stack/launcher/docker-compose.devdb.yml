@@ -1,0 +1,22 @@
+# Layered on top of circuly_core_api_lumen/docker-compose.yml by the launcher (Dev DB mode).
+# Points the local API at the shared dev database (RDS) instead of the local Docker Postgres.
+# Host, user and password come from config.json / the password file, passed in by the launcher.
+services:
+    app:
+        environment:
+            DB_HOST: ${CIRCULY_DEVDB_HOST:?started outside the launcher}
+            DB_PORT: ${CIRCULY_DEVDB_PORT:-5432}
+            DB_DATABASE: ${CIRCULY_DEVDB_DATABASE:-postgres}
+            DB_USERNAME: ${CIRCULY_DEVDB_USER:?started outside the launcher}
+            DB_PASSWORD: ${CIRCULY_DEVDB_PASSWORD:?started outside the launcher}
+            # Every email goes to MailHog (http://localhost:8025), nothing reaches a real inbox.
+            MAIL_MAILER: smtp
+            MAIL_HOST: mailhog
+            MAIL_PORT: "1025"
+            # Keep jobs and cache on this machine: with "database" they would land in the shared
+            # jobs/cache tables, where the dev server's own workers would pick them up.
+            # The file cache lives in memory inside the container (see docker-compose.speed.yml).
+            QUEUE_CONNECTION: sync
+            CACHE_STORE: file
+            CACHE_DRIVER: file
+            TELESCOPE_ENABLED: "false"

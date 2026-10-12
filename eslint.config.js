@@ -21,7 +21,7 @@ const suiteBoundary = (forbidden) => ({
 });
 
 module.exports = tseslint.config(
-  { ignores: ['node_modules/', 'playwright-report/', 'test-results/', 'reports/'] },
+  { ignores: ['node_modules/', 'playwright-report/', 'test-results/', 'reports/', 'local-stack/'] },
   ...tseslint.configs.recommended,
   { files: ['**/*.js'], rules: { '@typescript-eslint/no-require-imports': 'off' } },
   // `const { region, ...rest } = payload` is how a field is dropped from a payload.

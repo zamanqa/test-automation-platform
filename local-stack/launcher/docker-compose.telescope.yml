@@ -1,0 +1,8 @@
+# Added by the launcher only while Telescope is turned on (see setTelescope in server.js).
+services:
+    app:
+        volumes:
+            - type: bind
+              source: "${LAUNCHER_DIR}/telescope.php"
+              target: /var/www/html/config/telescope.php
+              read_only: true

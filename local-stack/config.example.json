@@ -1,0 +1,12 @@
+{
+  "circulyRoot": "C:\\Circuly\\circuly_pro",
+  "node22": "%USERPROFILE%\\tools\\node22",
+  "companyId": "<company id that CSS and POS open, e.g. from the Hub>",
+  "devdb": {
+    "host": "<dev database host (RDS dev restore), ask the team>",
+    "port": "5432",
+    "database": "postgres",
+    "user": "<dev database user, ask the team>",
+    "passwordFile": "%USERPROFILE%\\rds_password.txt"
+  }
+}

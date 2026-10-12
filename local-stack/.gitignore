@@ -1,0 +1,11 @@
+# Machine-specific settings and secrets (see config.example.json)
+config.json
+launcher/oidc-signing-key.pem
+
+# Written by the launcher while it runs
+launcher/state.json
+launcher/pids.json
+launcher/telescope.php
+launcher/docker-compose.mailblock.yml
+# Lists the backend files to pre-compile; made on each machine from real requests
+launcher/php/used-files.txt

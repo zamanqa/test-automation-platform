@@ -1,0 +1,29 @@
+# Layered on top of circuly_core_api_lumen/docker-compose.yml by the launcher (both DB modes).
+services:
+    app:
+        volumes:
+            - type: bind
+              source: "${LAUNCHER_DIR}/php-speed.ini"
+              target: /usr/local/etc/php/conf.d/zz-launcher-speed.ini
+              read_only: true
+            # warm.php + fcgi.php: compile the code into OPcache right after a start.
+            - type: bind
+              source: "${LAUNCHER_DIR}/php"
+              target: /opt/launcher
+              read_only: true
+            # The code is a Windows folder mounted into Docker, where every file write and lock is
+            # slow. Laravel's file cache and compiled views go to memory instead (lost on restart,
+            # which is fine for caches). Without this, a sign-in code request took ~10s.
+            - type: tmpfs
+              target: /var/www/html/storage/framework/cache
+              tmpfs:
+                  mode: 0o1777
+            - type: tmpfs
+              target: /var/www/html/storage/framework/views
+              tmpfs:
+                  mode: 0o1777
+        environment:
+            # Local-only RSA key (launcher/oidc-signing-key.pem, base64) so the code and magic-link
+            # sign-ins can issue id_tokens. Without it /oauth/authorize answers server_error.
+            OIDC_SIGNING_KEY: ${CIRCULY_OIDC_SIGNING_KEY:?started outside the launcher}
+            OIDC_ISSUER: http://localhost:8000

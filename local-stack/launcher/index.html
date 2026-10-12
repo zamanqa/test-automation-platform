@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuly Local</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #677085; --line: #e3e6ec;
+    --accent: #3b5bdb; --accent-text: #fff; --ok: #2f9e44; --warn: #e67700; --bad: #e03131; --idle: #adb5bd;
+    --code: #f1f3f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa2b4; --line: #2d313b;
+      --accent: #5c7cfa; --accent-text: #fff; --ok: #51cf66; --warn: #ffa94d; --bad: #ff6b6b; --idle: #5c6370;
+      --code: #121418;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 18px 24px 6px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; }
+  header span { color: var(--muted); }
+  main { padding: 12px 24px 40px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); max-width: 1400px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .wide { grid-column: 1 / -1; }
+  label { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
+  input[type=text], select { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .45; cursor: default; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button.on { background: var(--accent); color: var(--accent-text); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--idle); flex: none; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+  .meta { color: var(--muted); font-size: 12px; word-break: break-all; }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 13px; margin-bottom: 12px; }
+  .kv div:nth-child(odd) { color: var(--muted); }
+  .apps { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .app { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .app .title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .app .title .port { margin-left: auto; color: var(--muted); font-weight: 400; font-size: 12px; }
+  .notice { border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); padding: 8px 10px; border-radius: 4px; font-size: 13px; margin-top: 10px; }
+  .notice.info { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 6px; padding: 10px; margin: 8px 0 0; max-height: 280px; overflow: auto; font: 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+  a { color: var(--accent); }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--bad); color: #fff; padding: 10px 14px; border-radius: 8px; max-width: 90vw; display: none; }
+  dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); width: min(1000px, 94vw); padding: 16px; }
+  dialog pre { max-height: 65vh; }
+  @media (max-width: 520px) { main, header { padding-left: 16px; padding-right: 16px; } main { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } }
+  #readyCard.busy { border-color: var(--warn); }
+  #readyCard.all { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--card)); }
+  .rrow { display: grid; grid-template-columns: 9px 92px 1fr 40px 110px; gap: 8px; align-items: center; padding: 5px 0; font-size: 13px; }
+  .rrow .pct { text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { display: block; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); transition: width .6s; }
+  .app .bar { margin: 6px 0 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Circuly Local</h1>
+  <span>Run the core API and the Hub, CSS, POS and Switchboard apps on your machine</span>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Branches &amp; database</h2>
+    <div class="grid2">
+      <div>
+        <label for="bBranch">Backend branch</label>
+        <select id="bBranch"></select>
+      </div>
+      <div>
+        <label for="fBranch">Frontend branch</label>
+        <select id="fBranch"></select>
+      </div>
+    </div>
+    <label>Database</label>
+    <div class="seg" id="dbSeg">
+      <button data-db="dev">Dev DB (shared)</button>
+      <button data-db="local">Local Docker DB</button>
+    </div>
+    <label for="company">Company ID for CSS and POS</label>
+    <input type="text" id="company" spellcheck="false">
+    <label for="autoStop">Stop an app when no browser tab has it open for</label>
+    <select id="autoStop" title="Each running app uses 1.5-2.5 GB of memory">
+      <option value="10">10 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option>
+      <option value="120">2 hours</option><option value="0">Never</option>
+    </select>
+    <div class="row" style="margin-top:12px">
+      <button id="fetchBtn">Refresh branches (git fetch)</button>
+    </div>
+    <div class="notice info" id="dbNote"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="dot" id="bDot"></span> Backend API</h2>
+    <div class="kv" id="bKv"></div>
+    <div class="row">
+      <button class="primary" id="bStart">Start backend</button>
+      <button id="bStop">Stop</button>
+      <button id="bPull">Pull latest</button>
+      <button id="bReload" title="PHP caches the code for speed. Use this after editing backend files.">Reload backend code</button>
+      <button id="bMigrate" title="Only on the local Docker DB">Run migrations (local DB)</button>
+      <button id="bTeleOpen" title="Shows the API requests (endpoints). Turns Telescope on first if it is off (about 30 s).">Open Telescope</button>
+      <button id="bTelescope" title="Stops recording requests; Telescope then uses no memory.">Turn off Telescope</button>
+      <button class="danger" id="bRemove">Remove branch folder</button>
+    </div>
+    <div id="bWarn"></div>
+  </section>
+
+  <section class="card" id="readyCard">
+    <h2 id="readyTitle">Nothing running</h2>
+    <div id="ready"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="pullAll" title="git pull for the selected backend and frontend branches">Pull backend + frontend</button>
+    </div>
+  </section>
+
+  <section class="card wide">
+    <h2>Frontend apps</h2>
+    <div class="kv" id="fKv"></div>
+    <div class="row" style="margin-bottom:14px">
+      <button id="fPrepare">Prepare frontend branch</button>
+      <button id="fInstall">Install dependencies</button>
+      <button id="fPull">Pull latest</button>
+      <button class="danger" id="fRemove">Remove branch folder</button>
+      <span style="flex:1"></span>
+      <button id="stopAll">Stop all</button>
+    </div>
+    <div class="apps" id="apps"></div>
+    <div class="notice info">The first start of an app compiles for about a minute. Hub sign-in goes through the local API at <b>/en/auth/oauth-login</b> (code by email, read it in MailHog). The plain <b>/en/auth/login</b> page is the old hosted Supabase login: it ignores the local API and sends real email. CSS and Switchboard also send a code. POS uses a location ID and password.</div>
+  </section>
+
+  <section class="card">
+    <h2>Tools</h2>
+    <div class="row">
+      <a href="http://localhost:8025" target="_blank" rel="noopener"><button><span class="dot" id="mailDot"></span> MailHog (all emails)</button></a>
+      <a href="http://localhost:8000/v1/version" target="_blank" rel="noopener"><button>API version</button></a>
+    </div>
+    <div class="meta" id="relayInfo" style="margin-top:10px"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="dot" id="jobDot"></span> <span id="jobTitle">No task running</span></h2>
+    <pre id="jobLog">Long tasks (starting the backend, preparing a branch, git) show their output here.</pre>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let S = null;
+const TELESCOPE_URL = 'http://localhost:8000/telescope/requests';
+let teleWin = null; // tab opened by "Open Telescope" while Telescope was still being turned on
+let teleArmed = false;
+
+async function post(p, body) {
+  const r = await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Launcher': '1' }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) toast(j.error || 'Request failed');
+  refresh();
+  return r.ok;
+}
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 6000);
+}
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+async function loadBranches() {
+  const b = await (await fetch('/api/branches')).json();
+  for (const [sel, list] of [[$('bBranch'), b.backend], [$('fBranch'), b.frontend]]) {
+    const keep = sel.value;
+    sel.innerHTML = list.map((x) => `<option>${esc(x)}</option>`).join('');
+    if (keep) sel.value = keep;
+  }
+}
+
+function render() {
+  const s = S;
+  const busy = s.job && s.job.status === 'running';
+  if (document.activeElement !== $('bBranch')) $('bBranch').value = s.settings.backendBranch;
+  if (document.activeElement !== $('fBranch')) $('fBranch').value = s.settings.frontendBranch;
+  if (document.activeElement !== $('company')) $('company').value = s.settings.companyId;
+  if (document.activeElement !== $('autoStop')) $('autoStop').value = String(s.settings.autoStopMinutes);
+  for (const b of $('dbSeg').children) b.classList.toggle('on', b.dataset.db === s.settings.db);
+  $('dbNote').textContent = s.settings.db === 'dev'
+    ? 'Dev DB: you sign in with existing dev users, and every change you make is real dev data. Jobs and cache stay on this machine. No email reaches a real inbox: every email is copied to MailHog instead.'
+    : 'Local Docker DB: seeded test data only. Use "Run migrations" when a branch adds migrations.';
+
+  // backend
+  const be = s.backend;
+  const apiUp = be.api && be.api.up;
+  $('bDot').className = 'dot ' + (apiUp ? 'ok' : be.container === 'running' ? 'warn' : '');
+  const br = s.repos.backend;
+  $('bKv').innerHTML = `
+    <div>Running</div><div>${apiUp ? `<b>${esc(be.branch || '?')}</b> on ${be.db === 'dev' ? 'dev DB' : 'local DB'}` : 'not running'}</div>
+    <div>API</div><div>${apiUp ? `<a href="http://localhost:8000/v1/version" target="_blank">localhost:8000</a> · ${esc((be.api.database || '').split(' on ')[0])}` : esc(be.container)}</div>
+    <div>Selected</div><div>${esc(br.branch)} ${br.exists ? '' : '<span class="meta">(folder is created on first start)</span>'}</div>
+    ${br.exists ? `<div>Commit</div><div class="meta">${esc(br.commit)}${br.changed ? ` · ${br.changed} local change(s)` : ''}</div>` : ''}
+    <div>Folder</div><div class="meta">${esc(br.dir)}</div>
+    ${be.telescope ? `<div>Telescope</div><div><a href="http://localhost:8000/telescope/requests" target="_blank">localhost:8000/telescope</a> <span class="meta">· requests only, turn off when done</span></div>` : ''}`;
+  const switching = apiUp && (be.branch !== s.settings.backendBranch || be.db !== s.settings.db);
+  $('bStart').textContent = apiUp ? (switching ? 'Restart with selection' : 'Restart backend') : 'Start backend';
+  $('bStart').disabled = busy;
+  $('bStop').disabled = busy || be.container !== 'running';
+  $('bPull').disabled = busy || !br.exists;
+  $('bReload').disabled = busy || !apiUp;
+  $('bTelescope').disabled = busy || !apiUp;
+  $('bTelescope').hidden = !be.telescope;
+  $('bTeleOpen').disabled = !apiUp || (busy && !teleWin);
+  $('bTeleOpen').textContent = teleWin ? 'Turning on Telescope…' : 'Open Telescope';
+  // Telescope was turned on from "Open Telescope": point the tab opened on the click at it.
+  if (teleWin && be.telescope && !busy) { teleWin.location.href = TELESCOPE_URL; teleWin = null; }
+  if (teleWin && teleArmed && !busy && !be.telescope) { teleWin.close(); teleWin = null; } // turning on failed
+  $('bMigrate').disabled = busy || !apiUp || be.db !== 'local';
+  $('bRemove').disabled = busy || br.isMain || !br.exists;
+  let warn = '';
+  if (be.pendingMigrations && be.pendingMigrations.length) {
+    warn += `<div class="notice"><b>${be.pendingMigrations.length} migration(s) on this branch are not in the ${be.db === 'dev' ? 'dev' : 'local'} database.</b>
+      Pages that use these tables or columns will fail.${be.db === 'dev' ? ' The launcher never migrates the shared dev DB.' : ''}<br><span class="meta">${be.pendingMigrations.map(esc).join('<br>')}</span></div>`;
+  }
+  if (switching) warn += `<div class="notice">Your selection differs from what is running. Click "Restart with selection" to switch.</div>`;
+  if (apiUp && s.warm.state === 'running') {
+    const wp = s.warm.progress;
+    warn += `<div class="notice info">Warming up the API: ${pct(wp)}% (${s.warm.seconds}s so far). Until it finishes, the first sign-in or page can be slow or time out once.${bar(wp)}</div>`;
+  }
+  if (s.warm.state === 'failed') warn += `<div class="notice">Warm-up failed: ${esc(s.warm.result || '')}. The API works, but first requests can be slow.</div>`;
+  $('bWarn').innerHTML = warn;
+
+  // frontend
+  const fr = s.repos.frontend;
+  $('fKv').innerHTML = `
+    <div>Selected</div><div>${esc(fr.branch)} ${!fr.exists ? '<span class="meta">(folder not created yet)</span>' : fr.prepared ? '' : '<span class="meta">(dependencies not installed)</span>'}</div>
+    ${fr.exists ? `<div>Commit</div><div class="meta">${esc(fr.commit)}${fr.changed ? ` · ${fr.changed} local change(s)` : ''}</div>` : ''}
+    <div>Folder</div><div class="meta">${esc(fr.dir)}</div>`;
+  const ready = fr.exists && fr.prepared;
+  $('fPrepare').disabled = busy || ready;
+  $('fInstall').disabled = busy || !fr.exists;
+  $('fPull').disabled = busy || !fr.exists;
+  $('fRemove').disabled = busy || fr.isMain || !fr.exists;
+
+  $('apps').innerHTML = s.apps.map((a) => {
+    const dot = { queued: 'warn', running: 'ok', starting: 'warn', compiling: 'warn', external: 'warn', repairing: 'warn', stopped: '' }[a.state];
+    const label = { queued: 'Waiting: apps start one at a time', running: 'Ready', starting: 'Starting…', compiling: 'Building pages', external: 'Running outside the launcher', repairing: 'Crashed, repairing and restarting…', stopped: a.autoStopped ? 'Stopped automatically (no open tab), to free memory' : 'Stopped' }[a.state];
+    const on = a.state !== 'stopped' && a.state !== 'repairing';
+    return `<div class="app">
+      <div class="title"><span class="dot ${dot}"></span>${esc(a.name)}<span class="port">:${a.port}</span></div>
+      <div class="meta">${label}${a.branch ? ` · ${esc(a.branch)}` : ''}${a.progress ? ` · ${pct(a.progress)}%` : ''}</div>
+      ${['starting', 'compiling', 'repairing'].includes(a.state) ? bar(a.progress) : ''}
+      <div class="row">
+        ${on ? `<button data-act="stop" data-id="${a.id}">Stop</button>` : `<button class="primary" data-act="start" data-id="${a.id}" ${ready ? '' : 'disabled'}>Start</button>`}
+        <a href="${esc(a.url)}" target="_blank" rel="noopener"><button ${['running', 'external', 'compiling'].includes(a.state) ? '' : 'disabled'}>Open</button></a>
+        ${a.state === 'stopped' ? `<button data-act="repair" data-id="${a.id}" title="Clears this app's build cache. Use it when the app crashes right after starting.">Repair</button>` : ''}
+      </div></div>`;
+  }).join('');
+
+  renderReady(s, apiUp);
+
+  $('mailDot').className = 'dot ' + (s.mailhog ? 'ok' : '');
+  const rl = s.relay;
+  $('relayInfo').innerHTML = !rl.active
+    ? 'Email copies start once the backend is started from here.'
+    : `Real sending is blocked. Every email the local API creates is copied to MailHog: <b>${rl.count}</b> so far`
+      + (rl.last ? `, last “${esc(rl.last.subject)}” to ${esc(rl.last.to)}` : '')
+      + (rl.error ? `<br><span style="color:var(--bad)">Relay problem: ${esc(rl.error)}</span>` : '');
+
+  // job
+  if (s.job) {
+    $('jobTitle').textContent = s.job.title;
+    $('jobDot').className = 'dot ' + ({ running: 'warn', done: 'ok', failed: 'bad' }[s.job.status]);
+    showNewestFirst($('jobLog'), s.job.log);
+  }
+}
+
+// Logs are shown newest first. A Laravel entry spans several lines (stack traces), so lines are
+// grouped into entries (a new one starts with "[2026-…") and the entries are reversed, not the lines.
+// At the top the newest entries stay in view; scrolled down, the text you are reading stays put.
+function showNewestFirst(pre, lines) {
+  const dated = lines.some((l) => /^\[\d{4}-\d\d-\d\d/.test(l));
+  const entries = [];
+  for (const line of lines) {
+    if (!entries.length || !dated || /^\[\d{4}-\d\d-\d\d/.test(line)) entries.push([line]);
+    else entries[entries.length - 1].push(line);
+  }
+  const text = entries.reverse().map((e) => e.join('\n')).join('\n');
+  if (pre.textContent === text) return;
+  const atTop = pre.scrollTop < 20;
+  const before = pre.scrollHeight;
+  pre.textContent = text;
+  pre.scrollTop = atTop ? 0 : pre.scrollTop + (pre.scrollHeight - before);
+}
+
+// Progress: apps report a percent; the backend warm-up reports files done / total.
+const pct = (p) => (!p ? 0 : p.percent != null ? p.percent : p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0);
+const bar = (p) => `<span class="bar"><i style="width:${pct(p)}%"></i></span>`;
+
+// Readiness banner. The backend is ready once the API answers and its warm-up is over; an app once
+// its first page is built. When everything that was started becomes ready, the page alerts once
+// (banner, sound, tab title and a desktop notification if allowed).
+let wasReady = null;
+function renderReady(s, apiUp) {
+  const items = [];
+  if (apiUp || s.backend.container === 'running') {
+    const warming = s.warm.state === 'running';
+    items.push({ name: 'Backend', ok: apiUp && !warming, busy: !apiUp || warming, progress: apiUp ? s.warm.progress : { percent: 0 },
+      note: !apiUp ? 'starting' : warming ? 'warming up' : 'ready' });
+  }
+  for (const a of s.apps) {
+    if (a.state === 'stopped') continue;
+    const note = { queued: 'waiting', running: 'ready', external: 'ready', starting: 'starting', compiling: 'loading pages', repairing: 'repairing' }[a.state];
+    items.push({ name: a.name, ok: a.state === 'running' || a.state === 'external', busy: a.state !== 'running' && a.state !== 'external', progress: a.progress, note });
+  }
+  const all = items.length > 0 && items.every((i) => i.ok);
+  $('readyCard').classList.toggle('all', all);
+  $('readyCard').classList.toggle('busy', !all && items.length > 0);
+  $('readyTitle').textContent = all ? '✔ Ready to use' : items.length ? 'Not ready yet' : 'Nothing running';
+  $('ready').innerHTML = items.map((i) => `<div class="rrow">
+      <span class="dot ${i.ok ? 'ok' : 'warn'}"></span><b>${esc(i.name)}</b><span class="meta">${esc(i.note)}</span>
+      ${i.busy ? `<span class="pct">${pct(i.progress)}%</span>${bar(i.progress)}` : '<span></span><span></span>'}</div>`).join('')
+    || '<div class="meta">Start the backend and the apps below.</div>';
+  document.title = all ? '✔ Ready · Circuly Local' : items.length ? '… Starting · Circuly Local' : 'Circuly Local';
+  const key = all ? items.map((i) => i.name).join(',') : null;
+  if (wasReady !== null && key && key !== wasReady) alertReady(items.map((i) => i.name).join(', '));
+  wasReady = key;
+}
+function alertReady(names) {
+  toast(`Ready to use: ${names}`);
+  try {
+    const ctx = new AudioContext();
+    [660, 880].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.frequency.value = f; g.gain.value = 0.15; o.connect(g).connect(ctx.destination);
+      o.start(ctx.currentTime + i * 0.18); o.stop(ctx.currentTime + i * 0.18 + 0.15);
+    });
+  } catch { /* no sound */ }
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Circuly Local is ready', { body: names });
+  }
+}
+// Ask for desktop notifications on the first click (browsers only allow asking after a click).
+document.addEventListener('click', () => {
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+}, { once: true });
+
+// render() rebuilds the buttons. Doing that between mouse-down and mouse-up swallows the click,
+// so redraws wait while a mouse button is held.
+let pointerDown = false;
+document.addEventListener('pointerdown', () => { pointerDown = true; }, true);
+document.addEventListener('pointerup', () => { setTimeout(() => { pointerDown = false; }, 0); }, true);
+
+async function refresh() {
+  try {
+    S = await (await fetch('/api/status')).json();
+    if (pointerDown) await new Promise((r) => { const t = setInterval(() => { if (!pointerDown) { clearInterval(t); r(); } }, 50); });
+    render();
+  } catch { /* launcher restarting */ }
+}
+
+$('bBranch').onchange = (e) => post('/api/settings', { backendBranch: e.target.value });
+$('fBranch').onchange = (e) => post('/api/settings', { frontendBranch: e.target.value });
+$('company').onchange = (e) => post('/api/settings', { companyId: e.target.value });
+$('autoStop').onchange = (e) => post('/api/settings', { autoStopMinutes: Number(e.target.value) });
+$('dbSeg').onclick = (e) => { if (e.target.dataset.db) post('/api/settings', { db: e.target.dataset.db }); };
+$('fetchBtn').onclick = async () => { await post('/api/git/fetch'); const t = setInterval(async () => { if (S.job && S.job.status !== 'running') { clearInterval(t); loadBranches(); } }, 1500); };
+$('bStart').onclick = () => {
+  if (S.settings.db === 'dev' && !confirm(`Start the backend on "${S.settings.backendBranch}" against the SHARED dev database?\n\nChanges you make in the apps are real dev data.`)) return;
+  post('/api/backend/start');
+};
+$('bStop').onclick = () => post('/api/backend/stop');
+$('bPull').onclick = () => post('/api/git/pull', { kind: 'backend' });
+$('bReload').onclick = () => post('/api/backend/reload');
+$('bTelescope').onclick = () => post('/api/telescope', { on: false });
+$('bTeleOpen').onclick = async () => {
+  if (S && S.backend && S.backend.telescope) { window.open(TELESCOPE_URL, '_blank'); return; }
+  // Open the tab now (a tab opened later, without a click, is blocked as a pop-up) and load
+  // Telescope into it once it is on.
+  teleWin = window.open('', '_blank');
+  if (teleWin) teleWin.document.write('<title>Telescope</title><p style="font:16px system-ui;margin:40px">Turning on Telescope (about 30 s)…</p>');
+  teleArmed = false;
+  const ok = await post('/api/telescope', { on: true });
+  if (!ok && teleWin) { teleWin.close(); teleWin = null; }
+  teleArmed = true;
+};
+$('bMigrate').onclick = () => confirm('Run pending migrations on the LOCAL Docker database?') && post('/api/backend/migrate');
+$('bRemove').onclick = () => confirm(`Remove the backend folder for "${S.settings.backendBranch}"? (git refuses if it has uncommitted changes)`) && post('/api/git/remove', { kind: 'backend' });
+$('fPrepare').onclick = () => post('/api/frontend/prepare');
+$('fInstall').onclick = () => post('/api/frontend/install');
+$('fPull').onclick = () => post('/api/git/pull', { kind: 'frontend' });
+$('pullAll').onclick = () => post('/api/git/pull-all');
+$('fRemove').onclick = () => confirm(`Remove the frontend folder for "${S.settings.frontendBranch}"? (git refuses if it has uncommitted changes)`) && post('/api/git/remove', { kind: 'frontend' });
+$('stopAll').onclick = () => post('/api/apps/stop-all');
+$('apps').onclick = (e) => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const { act, id } = b.dataset;
+  post(`/api/app/${id}/${act}`);
+};
+
+
+loadBranches().then(refresh);
+// Every status check runs docker and probes each app. A tab in the background checks every 15s
+// instead of 2.5s (enough to still catch "ready" for the alert).
+let lastRefresh = 0;
+setInterval(() => {
+  if (document.hidden && Date.now() - lastRefresh < 15000) return;
+  lastRefresh = Date.now();
+  refresh();
+}, 2500);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>
