@@ -19,19 +19,24 @@ setup('hub login (reused for 24 hours)', async ({ browser, page, loginPage }) =>
   if (savedLoginIsFresh) {
     const savedSession = await browser.newContext({ storageState: HUB_AUTH_STATE });
     const checkPage = await savedSession.newPage();
+    // the hub also loads the user from Supabase; 403 = the user token has expired. The pages still
+    // open then, but actions that need the user fail (a note is saved without author → 400).
+    const userCheck = checkPage.waitForResponse((response) => response.url().includes('/auth/v1/user'), { timeout: 30_000 }).catch(() => null);
     await checkPage.goto(`${env.hub.HUB_URL}en/cms/orders`);
     // logged in = order table, not logged in = password field
     const orderRow = checkPage.locator('tbody tr').first();
     const passwordField = checkPage.locator('input[type="password"]');
     await expect(orderRow.or(passwordField).first()).toBeVisible({ timeout: 30_000 });
-    const stillLoggedIn = await orderRow.isVisible();
+    const userResponse = await userCheck;
+    const userTokenValid = !userResponse || userResponse.ok();
+    const stillLoggedIn = (await orderRow.isVisible()) && userTokenValid;
     await savedSession.close();
 
     if (stillLoggedIn) {
       console.log('[hub login] saved login is less than 24 hours old and still valid → reused');
       return;
     }
-    console.log('[hub login] saved login was rejected by the hub (login page shown) → logging in again');
+    console.log('[hub login] saved login was rejected by the hub (login page shown or user token expired) → logging in again');
   } else {
     console.log('[hub login] no saved login, or older than 24 hours → logging in');
   }
