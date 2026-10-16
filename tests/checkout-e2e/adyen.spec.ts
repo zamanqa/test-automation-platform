@@ -14,6 +14,10 @@ test.describe('Checkout - Shopify + Adyen', () => {
   });
 
   test('payment methods are shown and selectable', async ({ page, adyenPayment }) => {
+    // CHECK: Apple Pay and Google Pay are offered (not clicked, they open the browser's wallet)
+    await expect(page.getByTestId('selection-btn-applepay')).toBeVisible();
+    await expect(page.getByTestId('selection-btn-googlepay')).toBeVisible();
+
     // ACTION + CHECK: open each Adyen method. (Nothing is paid.)
     await adyenPayment.chooseMethod('scheme'); // Cards
     await adyenPayment.chooseMethod('sepadirectdebit');

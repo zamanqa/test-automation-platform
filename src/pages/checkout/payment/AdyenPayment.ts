@@ -5,7 +5,7 @@ import { PAYMENT_PAUSE_MS } from '@pages/checkout/CheckoutPage';
 /**
  * Adyen payment on the payment step (Shopify + Adyen shop).
  * Each method is a button data-test-id="selection-btn-<name>":
- *   scheme (Cards), sepadirectdebit, paypal, ideal, twint.
+ *   scheme (Cards), sepadirectdebit, paypal, ideal, twint, applepay, googlepay.
  * After you choose one, the others are hidden; "Change payment" shows the list again.
  */
 export class AdyenPayment {
