@@ -147,6 +147,35 @@ export function findOrder(hub: Database, orderId: string) {
   return hub.maybeOne<OrderRow>(`SELECT ${ORDER_COLUMNS} FROM orders o WHERE o.order_id = $1`, [orderId]);
 }
 
+export type OrderWithCustomerRow = {
+  order_id: string;
+  amount: string;
+  tax_amount: string;
+  shipping_amount: string;
+  discount: string;
+  total_item_count: number;
+  payment_provider: string;
+  payment_status: string;
+  email: string;
+  billing_first_name: string;
+  billing_last_name: string;
+  billing_street: string;
+  billing_postal_code: string;
+  billing_city: string;
+};
+
+/** Order with the customer's email and billing address (order_customers). Throws if none. Amounts are text ("40.0000"). */
+export function getOrderWithCustomer(hub: Database, orderId: string) {
+  return hub.one<OrderWithCustomerRow>(
+    `SELECT o.order_id, o.amount, o.tax_amount, o.shipping_amount, o.discount, o.total_item_count, o.payment_provider,
+            o.payment_status, oc.email, oc.billing_first_name, oc.billing_last_name, oc.billing_street,
+            oc.billing_postal_code, oc.billing_city
+       FROM orders o JOIN order_customers oc ON oc.id = o.order_customer_id
+      WHERE o.order_id = $1`,
+    [orderId],
+  );
+}
+
 /** Just the status text of an order ('open', 'fulfilled', 'cancelled' ...), or undefined. */
 export async function getOrderStatus(hub: Database, orderId: string): Promise<string | undefined> {
   const row = await hub.maybeOne<{ status: string }>('SELECT status FROM orders WHERE order_id = $1', [orderId]);

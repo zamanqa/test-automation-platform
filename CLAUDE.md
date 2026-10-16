@@ -51,11 +51,28 @@ npm run runner                     # browser test runner http://localhost:4455 (
 #                                    Test sync: tests/ is watched → counts per suite + added/deleted shown; "⟳ Sync tests" by hand
 #                                    Claude tab: "🤖 Ask Claude" on a failed test → claude CLI (owner's login) proposes a fix read-only;
 #                                    "Apply fix" edits (backup in reports/.claude-backup, "Undo") and reruns that test. runner/claude.js
-#                                    🧪 QA agent (http://localhost:4455/qa, runner/qa-agent.js + qa-agent-prompt.md + qa.html): Linear ticket or
+#                                    🧪 QA agent tab (header, page /qa in a frame, kept while switching tabs; /#qa opens it; runner/qa-agent.js + qa-agent-prompt.md + qa.html): Linear ticket or
 #                                    instructions → claude -p (sonnet, owner's plan login, no API key) asks a test plan first, tests the dev apps
 #                                    with Playwright MCP (headed/headless), curl, may run a suite (asks first); [[ASK]] / [[FIELDS]] / [[REPORT]]
 #                                    markers; first report auto-posted to Linear (separate haiku call, the agent has no Linear write). Runs in
 #                                    runner/runs/ (git-ignored, last 10 shown); one run at a time; stopped after 15 idle min or a looping agent.
+#                                    🔎 Coverage agent tab (/coverage in a frame, /#coverage; runner/coverage-agent.js + coverage-agent-prompt.md + coverage.html):
+#                                    pick apps (Hub/Checkout/POS/CSS) → "Find gaps" or "New changes" (commits on origin/development since the last
+#                                    New-changes report; first scan = last 7 days; state in runner/runs/coverage/state.json) → agent sends a PLAN
+#                                    (Approve / change) → may [[ASK]] → [[REPORT]] of missing test cases + DB effect to check; chat stays open.
+#                                    Project repos read only (Read/Grep/Glob + `git -C <repo> log|diff|show|blame|ls-files|rev-list`). In this repo it may write
+#                                    tests/**, src/**, CLAUDE.md after an approved PLAN (Edit rules; anything else refused), run typecheck/eslint, and
+#                                    `npx playwright test` after asking. Never commits. Page shows "Files changed by the agent".
+#                                    "Pull changes" = each project repo becomes an exact copy of GitHub (switch -f development, reset --hard
+#                                    origin/development, clean -fd, main = origin/main; .env/node_modules/vendor stay).
+#                                    🔀 Merges tab (/merges, data in coverage-agent.js merges/mergeFiles/fetchAll): branch development|main, last N days, repos
+#                                    (3 project repos + ../customers_api_lumen + this repo — MERGE_REPOS; the 2 extra are never pulled or read by the agent);
+#                                    --first-parent log of origin/<branch>: PR / squash PR / sync / direct commit, ticket ids, "in main?" (rev-list
+#                                    origin/main..origin/development); row click = changed files; "Fetch" = git fetch only. Shows last pull + fetch time.
+# Project repos (developers' code, 2026-10-16): ../circuly_frontend_mono_v2 (hub, checkout, POS, CSS apps),
+#   ../circuly_core_api_lumen (backend hub, CSS, POS), ../checkout-api (backend checkout). Always on development = GitHub.
+#   NEVER make any change in these 3 repos (no edits, commits, branches, pushes to GitHub) — read only.
+#   A bug found there → create a bug ticket (Linear) instead, after the owner says so.
 npm run summary                    # open reports/index.html: every suite, its runs of the last 3 days → click a run for summary + error log
 npm run report                     # Playwright report of the newest run (screenshots, video, trace); npm run report -- hub-e2e
 # Reports: reports/<suite>/<start time>/ {index.html, html-report/, test-results/, summary.json} + <start time>.zip (download);
@@ -201,9 +218,29 @@ Example spec: `tests/unified-api/orders/orders.spec.ts`.
   (Repairs has 2: Created date, Blocked) → ReturnsAndRepairsPage.search() types again until the text stays; repair() opens
   the row that has the serial link (not the first row). The Returns list shows active + pending return + pending replacement
   subscriptions (QueryService::buildFilterableReturns). Owner: the test may use the CSS test subscription (keep query as is).
+- Hub e-invoices (tests/hub-e2e/invoices/e-invoice.spec.ts, DB only, 2026-10-16): newest invoice of each type initial, recurring
+  payment, cumulated invoice, one time payment, refund, buyout, cancellation, full_refund, replacement, partial_refund (owner's list) must have
+  e_invoices rows xrechnung + zugferd. Rows are written on first email send / PDF download (EInvoiceService::issueOrFail), not on create.
+  Company setting: invoice_company_settings.e_invoice_enabled + e_invoice_format xrechnung. First run: cancellation, full_refund,
+  partial_refund newest invoices have no rows (full_refund / partial_refund have none at all on dev).
 - Hub refunds (invoice-list.spec): findRefundableRecurringInvoice skips transaction_id qa_auto% (owner), non-Stripe payments
   (a "TR_…" refund writes no refund transaction → picked again) and amount 0 (paid by account balance → Refund disabled).
   No DB check after "Successfully requested!" (owner: the refund invoice can come late) → full = nth 0, partial = nth 1, cancel = nth 2.
+- 2026-10-16 Checkout rules (new files, owner: new tests never go in old files): tests/checkout-e2e/stripe-rules.spec.ts (field validation,
+  countries, Back/reload, basket, vouchers 12/13/email-bound/expired/off + carts row, shipping 10 € + Austria on carts, wrong/declined/
+  3DS card, API 400/422, card + invoice (Pay twice) + voucher+shipping orders → checkout orders + hub orders/order_customers) and
+  stripe-settings.spec.ts (switches company/VAT/date of birth/buyer reference/notes/address remark/phone validation/different shipping/
+  postal code limit/required checkbox on and off; src/api/checkout-settings.ts switch*() = DB update + updated_at=now() + POST /v1/settings/refresh
+  ?api_key=&update_only_if_outdated=1 on .env API + checkout_url, poll GET /{key}/styling; old value back by cleanup). Run settings tests alone.
+  Bugs: CIR-1591 backend (API 500s, postal patterns of different length, 200 € voucher → total 0 not 0,50, Spain + region → company default 19 %; owner removed these 2 tests 2026-10-16),
+  CIR-1592 frontend (expired voucher text, declined card no message, shipping methods hidden after Back) — those checks fail / soft-fail until fixed.
+  Facts: form keeps typed values in localStorage (openWithEmptyForm clears it); percent/recurring vouchers show no Discount row (prices drop);
+  both shop checkboxes are required:false (Pay enabled without ticking); declined card → back on Address step, checkout orders row deleted after ~s;
+  invoice hub payment_status 'payment pending' or payment_required; different-shipping switch is v-show (in DOM when off); unknown cart id
+  creates an empty cart; DE postal code has no format rule. Stripe shop settings (hub checkout.*): company/VAT/date of birth off, notes, address
+  remark, buyer reference on, delivery countries be,de,no,es,at, minimum_age 14. Checkout DB (db.checkout, CHECKOUT_DB_* = test DB
+  (set 2026-10-16; password in single quotes in .env): carts (voucher_*, shipping_cost, shipping_method json, alpha2, tax_percent),
+  cart_items, orders (order_number = hub order_id, order_amount, tax_amount, payment_method card|offlinegateway, meta.contact.buyer_reference).
 - Customer "Process open orders" is enabled only if the customer has an unprocessed order → test takes a checkout order
   not in subscriptions (owner) and opens ITS customer. The dialog shows one order at a time ("1 / N"); ‹ › stay disabled
   until that order is processed → the test checks the shown order belongs to the customer (DB), then Close.
@@ -271,7 +308,6 @@ file contents that are already saved on disk.
 - Test data: `addresses.germany.phone` is `4917656824720`, but the phone field pre-fills `+49`, so
   the result is `+494917656824720`. Owner has not decided on the fix yet.
 
-- Checkout database connection (`CHECKOUT_DB_*`) not yet provided; `src/db/queries/checkout/` is empty.
 - Customer API has two candidate base URLs (Heroku one used; a Cloud Run one is mentioned in cus-api notes).
 - Old repos are public and contain credentials (checkout-e2e DB creds + Cypress record key,
   hub admin password, CronPage.js hub API password, cypress.health-check.config.js DB creds).

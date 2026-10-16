@@ -60,6 +60,9 @@ export type Card = { cardNumber: string; cardName: string; expiry: string; cvc: 
 /** Test cards and bank accounts of the payment providers (test values, not real). */
 export const payments = {
   stripeCard: { cardNumber: '4242424242424242', cardName: 'Zaman', expiry: '0330', cvc: '737' },
+  stripeDeclinedCard: { cardNumber: '4000000000000002', cardName: 'Zaman', expiry: '0330', cvc: '737' }, // always declined
+  stripe3dsCard: { cardNumber: '4000002760003184', cardName: 'Zaman', expiry: '0330', cvc: '737' }, // asks for 3-D Secure
+  stripeWrongNumberCard: { cardNumber: '4242424242424241', cardName: 'Zaman', expiry: '0330', cvc: '737' }, // fails the number check
   sepaIban: 'DE89370400440532013000',
   adyenCard: { cardNumber: '4917 6100 0000 0000', cardName: 'Zaman', expiry: '0330', cvc: '737' },
   adyenSepa: { holderName: 'A. Schneider', iban: 'DE87 1234 5678 1234 5678 90' },

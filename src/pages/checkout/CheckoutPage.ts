@@ -71,6 +71,16 @@ export class CheckoutPage {
     await expect(this.field('billing_first_name')).toBeVisible({ timeout: 30_000 });
   }
 
+  /** Opens the test cart with an empty contact form (the form keeps typed values in the browser storage). */
+  async openWithEmptyForm(cart: Cart) {
+    await this.open(cart);
+    await this.page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await this.open(cart);
+  }
+
   /**
    * Fills the contact form. Works for every shop: a field this shop does not show is skipped.
    * Uses a new random test email each time and returns it.
@@ -93,6 +103,16 @@ export class CheckoutPage {
     await this.selectCountry(address.country);
     await this.fillIfVisible('billing_notes', address.notes);
     return email;
+  }
+
+  /** Types a value into a contact-form field, e.g. typeInField('email', 'abc'). An empty value clears it. */
+  async typeInField(testId: string, value: string) {
+    await this.field(testId).fill(value);
+  }
+
+  /** The box around a contact-form field; its error (e.g. "First name is required.") is shown inside it. */
+  fieldBox(testId: string) {
+    return this.page.locator(`div[data-test-id='${testId}']`).first();
   }
 
   /** Chooses a country in the Country dropdown, e.g. "Germany". Skipped if this shop has no country field. */
@@ -269,9 +289,29 @@ export class CheckoutPage {
     await expect(this.page.getByTestId('implemented-voucher-value')).toBeVisible();
   }
 
+  /**
+   * Enters a valid code that lowers the subscription prices (percent voucher, voucher bigger than the cart):
+   * these show no Discount row, so it waits for "Remove promotion code".
+   */
+  async applyRecurringVoucher(code: string) {
+    await this.tryVoucher(code);
+    await expect(this.page.getByTestId('button-remove-voucher')).toBeVisible();
+  }
+
   /** The promotion code field; an error like "Could not redeem voucher." is shown inside it. */
   voucherField() {
     return this.page.locator("div[data-test-id='voucher-code-input']");
+  }
+
+  /** The email box an email-bound voucher asks for; its error is shown inside it. */
+  voucherEmailField() {
+    return this.page.locator("div[data-test-id='voucher-email-input']");
+  }
+
+  /** Types the email for an email-bound voucher → Validate. */
+  async tryVoucherEmail(email: string) {
+    await this.field('voucher-email-input').fill(email);
+    await this.page.getByTestId('button-validate-voucher').click();
   }
 
   /** Removes the voucher if one is on the cart. (The voucher is saved on the cart, so it stays after reload.) */
@@ -281,7 +321,7 @@ export class CheckoutPage {
     await expect(addButton.or(removeButton)).toBeVisible();
     if (await removeButton.isVisible()) {
       await removeButton.click();
-      await expect(addButton).toBeVisible();
+      await expect(removeButton).toBeHidden(); // the code input may stay open instead of "Add promotion code"
     }
   }
 
@@ -301,12 +341,45 @@ export class CheckoutPage {
     await invoice.first().click();
   }
 
+  /**
+   * Clicks Continue on a filled form until the shop answers: the payment step opens or an error box is shown.
+   * (A click while the shipping methods are loading is ignored.)
+   */
+  async clickContinue() {
+    await this.waitForShippingMethods();
+    await expect(async () => {
+      if (await this.field('billing_first_name').isVisible()) await this.nextStepButton.click();
+      await expect(this.payButton.or(this.errorAlert())).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 30_000 });
+  }
+
+  /** "Back" on the payment step → the contact form is shown again. */
+  async backToContactForm() {
+    await this.page.getByRole('button', { name: 'Back', exact: true }).last().click();
+    await expect(this.field('billing_first_name')).toBeVisible();
+  }
+
+  /** The value typed in a contact-form field, e.g. fieldValue('billing_city') → "Frankfurt am Main". */
+  async fieldValue(testId: string): Promise<string> {
+    return this.field(testId).inputValue();
+  }
+
+  /** The red message box at the top of the form, e.g. "limit reached, postal code area". */
+  errorAlert() {
+    return this.page.getByTestId('alert-error');
+  }
+
   /** Ticks every checkbox (terms, privacy …). */
   async acceptAllCheckboxes() {
     const checkboxes = this.page.locator("[data-test-id='checkbox'] input[type='checkbox']");
     const count = await checkboxes.count();
     for (let i = 0; i < count; i++) {
-      await checkboxes.nth(i).click({ force: true });
+      const checkbox = checkboxes.nth(i);
+      // The list can re-render right after the payment method is chosen and lose a click → click until it is ticked
+      await expect(async () => {
+        if (!(await checkbox.isChecked())) await checkbox.click({ force: true });
+        await expect(checkbox).toBeChecked({ timeout: 2_000 });
+      }).toPass({ timeout: 20_000 });
     }
   }
 
