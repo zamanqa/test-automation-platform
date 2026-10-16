@@ -268,3 +268,30 @@ export async function isInvoicePaidByNumber(hub: Database, invoiceNumber: string
   const row = await hub.maybeOne<{ paid: boolean }>('SELECT paid FROM public.invoices WHERE invoice_number = $1', [invoiceNumber]);
   return row?.paid;
 }
+
+/** Invoice types that must have e-invoices. */
+const E_INVOICE_TYPES = ['initial', 'recurring payment', 'cumulated invoice', 'one time payment', 'refund', 'buyout',
+  'cancellation', 'full_refund', 'replacement', 'partial_refund'];
+
+/** Newest invoice (highest id) of each e-invoice type of the company, not qa_auto. Empty list if none. */
+export function findNewestInvoicePerEInvoiceType(hub: Database, companyId: string) {
+  return hub.query<{ id: string; type: string; invoice_number: string }>(
+    `SELECT DISTINCT ON ("type") id, "type", invoice_number
+       FROM public.invoices
+      WHERE company_id = $1
+        AND "type" = ANY($2::text[])
+        AND invoice_number NOT LIKE 'qa_auto%'
+        AND COALESCE(transaction_id, '') NOT LIKE 'qa_auto%'
+      ORDER BY "type", id DESC`,
+    [companyId, E_INVOICE_TYPES],
+  );
+}
+
+/** E-invoice formats stored for an invoice, sorted (e.g. ['xrechnung', 'zugferd']). Empty list if none. */
+export async function getEInvoiceFormats(hub: Database, companyId: string, invoiceId: string): Promise<string[]> {
+  const rows = await hub.query<{ format: string }>(
+    'SELECT format FROM public.e_invoices WHERE company_id = $1 AND invoice_id = $2 ORDER BY format',
+    [companyId, invoiceId],
+  );
+  return rows.map((row) => row.format);
+}
