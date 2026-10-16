@@ -153,15 +153,16 @@ test.describe('POS - create order', () => {
     // ACTION: open the checkout link
     await posPage.page.goto(draft!.order_checkout_link);
 
-    // CHECK: the checkout shows the item, and the form has the customer's data
+    // CHECK: the checkout shows the item, and the billing form has the customer's data
+    // (by test id: the shipping form below has the same labels)
     await expect(posPage.page.getByText(product.variant_name).first()).toBeVisible({ timeout: 30_000 });
-    await expect(posPage.page.getByRole('textbox', { name: 'First name *' })).toHaveValue(customer.firstName);
-    await expect(posPage.page.getByRole('textbox', { name: 'Last name *' })).toHaveValue(customer.lastName);
+    await expect(posPage.page.locator('input[data-test-id="billing_first_name"]')).toHaveValue(customer.firstName);
+    await expect(posPage.page.locator('input[data-test-id="billing_last_name"]')).toHaveValue(customer.lastName);
     await expect(posPage.page.getByRole('textbox', { name: 'Email *' })).toHaveValue(customer.email);
-    await expect(posPage.page.getByRole('textbox', { name: 'Street *' })).toHaveValue(customer.street);
-    await expect(posPage.page.getByRole('textbox', { name: 'Street number *' })).toHaveValue(customer.streetNumber);
-    await expect(posPage.page.getByRole('textbox', { name: 'Postal Code *' })).toHaveValue(customer.postalCode);
-    await expect(posPage.page.getByRole('textbox', { name: 'City *' })).toHaveValue(customer.city);
+    await expect(posPage.page.locator('input[data-test-id="billing_street"]')).toHaveValue(customer.street);
+    await expect(posPage.page.locator('input[data-test-id="billing_street_number"]')).toHaveValue(customer.streetNumber);
+    await expect(posPage.page.locator('input[data-test-id="billing_postal_code"]')).toHaveValue(customer.postalCode);
+    await expect(posPage.page.locator('input[data-test-id="billing_city"]')).toHaveValue(customer.city);
 
     // CHECK: the voucher is applied (the discount amount is not checked)
     await expect(posPage.page.getByRole('button', { name: 'Remove promotion code' })).toBeVisible();
