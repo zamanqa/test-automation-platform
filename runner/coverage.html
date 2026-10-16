@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuly coverage agent</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #677085; --line: #e3e6ec;
+    --accent: #3b5bdb; --accent-text: #fff; --ok: #2f9e44; --warn: #e67700; --bad: #e03131; --idle: #adb5bd;
+    --code: #f1f3f5; --me: #e7ecff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa2b4; --line: #2d313b;
+      --accent: #5c7cfa; --accent-text: #fff; --ok: #51cf66; --warn: #ffa94d; --bad: #ff6b6b; --idle: #5c6370;
+      --code: #121418; --me: #252b40;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { max-width: 1800px; margin: 0 auto; padding: 18px 24px 6px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; }
+  header span { color: var(--muted); }
+  main { padding: 12px 24px 40px; display: grid; gap: 16px; grid-template-columns: 240px minmax(300px, 380px) minmax(0, 1fr); max-width: 1800px; margin: 0 auto; align-items: start; }
+  main > * { min-width: 0; }
+  .rail { position: sticky; top: 12px; padding: 12px; }
+  .rail .hist { max-height: calc(100vh - 150px); }
+  .rail .hist li { flex-wrap: wrap; row-gap: 2px; }
+  .hist .del { padding: 0 6px; border: 0; background: none; color: var(--muted); font-size: 12px; visibility: hidden; }
+  .hist li:hover .del { visibility: visible; } .hist .del:hover { color: var(--bad); }
+  .rail .hist .when { width: 100%; padding-left: 17px; font-size: 11px; color: var(--muted); }
+  .side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; position: sticky; top: 12px; }
+  #runCard { min-height: calc(100vh - 110px); display: flex; flex-direction: column; }
+  #run { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  #run[hidden] { display: none; }
+  #noRun { margin: auto; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  label { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
+  textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; resize: vertical; min-height: 70px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .checks label { display: inline-flex; gap: 5px; align-items: center; margin: 0 12px 0 0; color: var(--text); font-size: 13px; }
+  button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .45; cursor: default; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--idle); flex: none; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+  .meta { color: var(--muted); font-size: 12px; }
+  a { color: var(--accent); }
+  code { background: var(--code); padding: 0 4px; border-radius: 4px; font-size: 12px; }
+  .hist { list-style: none; margin: 0; padding: 0; overflow: auto; }
+  .hist li { padding: 7px 8px; border-radius: 6px; cursor: pointer; display: flex; gap: 8px; align-items: center; min-width: 0; }
+  .hist li:hover, .hist li.sel { background: var(--bg); }
+  .hist .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .badge.COVERED { color: var(--ok); border-color: var(--ok); } .badge.GAPS { color: var(--warn); border-color: var(--warn); }
+  .proj { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+  .proj .name { font-weight: 600; display: flex; gap: 6px; align-items: center; }
+  .proj .name .badge { margin-left: auto; }
+  .pull { white-space: pre-wrap; font: 12px/1.4 ui-monospace, Consolas, monospace; background: var(--code); border-radius: 6px; padding: 8px; margin-top: 8px; }
+  #feed { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 200px; max-height: 62vh; overflow: auto; padding-right: 4px; }
+  .msg { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; }
+  .msg.user { background: var(--me); align-self: flex-end; max-width: 80%; }
+  .msg.agent { background: var(--card); }
+  .msg.err { border-color: var(--bad); color: var(--bad); }
+  .msg.info { border-style: dashed; color: var(--muted); }
+  .tool { font: 12px/1.4 ui-monospace, Consolas, monospace; color: var(--muted); padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tool b { color: var(--text); font-weight: 600; }
+  .ask { border: 2px solid var(--accent); border-radius: 10px; padding: 12px; margin-top: 12px; }
+  .ask.plan { border-color: var(--warn); }
+  .ask .q { white-space: pre-wrap; margin-bottom: 8px; }
+  .report { border: 1px solid var(--line); border-radius: 8px; padding: 4px 14px; margin-top: 12px; }
+  .report h2, .report h3, .report h4 { margin: 12px 0 6px; } .report h2 { font-size: 16px; } .report h3 { font-size: 14px; }
+  .report ul { margin: 4px 0; padding-left: 20px; }
+  .md-table { border-collapse: collapse; margin: 6px 0; width: 100%; font-size: 13px; white-space: normal; }
+  .md-table th, .md-table td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+  .md-table th { background: var(--bg); }
+  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--bad); color: #fff; padding: 10px 14px; border-radius: 8px; max-width: 90vw; display: none; }
+  @media (max-width: 1100px) { main { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); } .rail { grid-column: 1 / -1; position: static; } .rail .hist { max-height: 180px; } }
+  @media (max-width: 860px) { .side { position: static; } #runCard { min-height: 0; } main { grid-template-columns: 1fr; padding-left: 16px; padding-right: 16px; } header { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Coverage agent</h1>
+  <span>Reads the frontend, the backends and this test repo (development branch) and lists the test cases that are missing, with the DB effect to check, and writes the tests you approve (test repo only).</span>
+  <a href="/" style="margin-left:auto" id="backLink">← Test runner</a>
+</header>
+
+<main>
+  <nav class="card rail">
+    <h2>Last 10 runs</h2>
+    <button id="newBtn" style="width:100%;margin-bottom:8px">＋ New analysis</button>
+    <ul class="hist" id="hist"></ul>
+  </nav>
+  <div class="side">
+    <section class="card">
+      <h2>Projects <span style="flex:1"></span><button id="pullBtn" title="Makes all 3 repos an exact copy of GitHub: development checked out, main updated. Local changes in those repos are removed (.env, node_modules, vendor stay).">⇣ Pull changes</button></h2>
+      <div class="meta" id="lastPull" style="margin:-4px 0 8px"></div>
+      <div id="projects" class="meta">Loading…</div>
+      <div id="pullOut"></div>
+    </section>
+    <section class="card">
+      <h2>New analysis</h2>
+      <label>Apps</label>
+      <div class="checks" id="apps">
+        <label><input type="checkbox" value="Hub" checked> Hub</label>
+        <label><input type="checkbox" value="Checkout"> Checkout</label>
+        <label><input type="checkbox" value="POS"> POS</label>
+        <label><input type="checkbox" value="CSS"> CSS</label>
+      </div>
+      <label for="instr">Instructions (optional)</label>
+      <textarea id="instr" placeholder="e.g. Only subscription cancel. / Which DB updates of POS create order are not checked?"></textarea>
+      <div class="row" style="margin-top:14px">
+        <button class="primary" id="gapsBtn" title="Explore the selected apps and list what the tests do not cover">🔎 Find gaps</button>
+        <button id="changesBtn" title="Only the commits on development since the last scan: what was added and what to test">🆕 New changes</button>
+      </div>
+      <div class="meta" style="margin-top:10px">The agent first shows its plan and waits for your approval. It may ask you questions on the way. The 3 project repos are read only; it writes tests only in this repo (tests/, src/, CLAUDE.md) after your approval, asks before running a test, and never commits.</div>
+    </section>
+  </div>
+
+  <section class="card" id="runCard">
+    <div class="empty" id="noRun">Start an analysis on the left, or open a past run.</div>
+    <div id="run" hidden>
+      <h2><span class="dot" id="rDot"></span> <span id="rTitle"></span> <span class="badge" id="rBadge"></span>
+        <span style="flex:1"></span>
+        <button id="closeBtn" title="End this chat: the agent stops, the history and report stay">Close</button>
+        <button class="danger" id="stopBtn">Stop</button>
+        <button class="danger" id="delBtn" title="Delete this run and its report">Delete</button></h2>
+      <div id="feed"></div>
+      <div id="askBox"></div>
+      <div id="reportBox"></div>
+      <div id="changedBox"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+// shown as a tab inside the test runner: no back link needed
+if (window.top !== window) $('backLink').hidden = true;
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let current = null;
+let R = null;
+let events = [];
+let askKey = null;
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 6000);
+}
+async function post(p, body) {
+  const r = await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Runner': '1' }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(j.error || 'Request failed'); return null; }
+  return j;
+}
+
+function md(src) {
+  const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/(https?:\/\/[^\s)<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  let html = '', list = 0, table = null;
+  const endTable = () => { if (table) { html += `<table class="md-table">${table.join('')}</table>`; table = null; } };
+  for (const raw of String(src).replace(/^```\w*$/gm, '').split('\n')) {
+    // "| a | b |" lines become a table: the first row is the header, the |---|---| line is skipped
+    if (/^\s*\|.*\|\s*$/.test(raw)) {
+      if (/^\s*\|[\s|:-]+\|\s*$/.test(raw)) continue;
+      const tag = table ? 'td' : 'th';
+      table = table || [];
+      table.push(`<tr>${raw.trim().slice(1, -1).split('|').map((c) => `<${tag}>${inline(c.trim())}</${tag}>`).join('')}</tr>`);
+      continue;
+    }
+    endTable();
+    const m = raw.match(/^(\s*)[-*] (.*)$/);
+    const depth = m ? Math.floor(m[1].length / 2) + 1 : 0;
+    while (list > depth) { html += '</ul>'; list--; }
+    while (list < depth) { html += '<ul>'; list++; }
+    if (m) { html += `<li>${inline(m[2])}</li>`; continue; }
+    const h = raw.match(/^(#{1,4}) (.*)$/);
+    if (h) html += `<h${Math.min(h[1].length + 1, 4)}>${inline(h[2])}</h${Math.min(h[1].length + 1, 4)}>`;
+    else if (raw.trim()) html += `<div>${inline(raw)}</div>`;
+    else html += '<div style="height:6px"></div>';
+  }
+  endTable();
+  while (list-- > 0) html += '</ul>';
+  return html;
+}
+const clean = (t) => t.replace(/\[\[REPORT\]\][\s\S]*?(\[\[\/REPORT\]\]|$)/, '(report below)').replace(/\[\[(PLAN|ASK)\]\]\s*$/, '').trim();
+const stateDot = (s) => ({ working: 'warn', starting: 'warn', waiting: 'ok', done: 'ok', failed: 'bad', stopped: '', closed: '' }[s] || '');
+const stateLabel = (s) => ({ working: 'working…', starting: 'starting…', waiting: 'waiting for you', done: 'done', failed: 'failed', stopped: 'stopped', closed: 'closed' }[s] || s);
+const badgeClass = (r) => (r === 'COVERED' ? 'COVERED' : r === 'GAPS FOUND' ? 'GAPS' : '');
+
+// ---- projects ----
+async function loadProjects() {
+  const j = await (await fetch('/api/coverage/projects')).json();
+  const pulls = j.projects.map((p) => p.lastPull).filter(Boolean);
+  $('lastPull').textContent = pulls.length ? `Last pull: ${new Date(Math.min(...pulls)).toLocaleString()}${new Set(pulls).size > 1 ? ' (oldest of the 3)' : ''}` : 'Last pull: never';
+  $('projects').innerHTML = j.projects.map((p) => {
+    if (p.missing) return `<div class="proj"><div class="name"><span class="dot bad"></span>${esc(p.name)}</div><div class="meta">Not found: ${esc(p.dir)}</div></div>`;
+    const offBranch = p.branch !== 'development';
+    const fresh = p.newCommits === null ? (p.scanned ? '' : 'New changes: not run yet') : p.newCommits ? `${p.newCommits} new commit(s) to check` : 'New changes: up to date';
+    return `<div class="proj"><div class="name"><span class="dot ${offBranch ? 'warn' : 'ok'}"></span>${esc(p.name)} <span class="meta">${esc(p.apps)}</span>
+        <span class="badge" title="Counts the commits on origin/development since the last 🆕 New changes report. Find gaps and Pull do not change it. The first New changes run checks the last 7 days.">${esc(fresh)}</span></div>
+      <div class="meta">On <b>${esc(p.branch)}</b>${offBranch ? ' (not development: the agent reads origin/development)' : ''}${p.localChanges ? ` · ${p.localChanges} local change(s)` : ''}</div>
+      ${p.head ? `<div class="meta">origin/development: <code>${esc(p.head.sha)}</code> ${esc(p.head.subject).slice(0, 70)} · ${esc(p.head.when)}</div>` : ''}
+      <div class="meta">Last pull: ${p.lastPull ? new Date(p.lastPull).toLocaleString() : 'never'}${p.scanned ? ` · last scan: ${new Date(p.scanned.at).toLocaleString()}` : ''}</div></div>`;
+  }).join('');
+}
+$('pullBtn').onclick = async () => {
+  $('pullBtn').disabled = true; $('pullBtn').textContent = '⇣ Pulling…';
+  const j = await post('/api/coverage/pull');
+  $('pullBtn').disabled = false; $('pullBtn').textContent = '⇣ Pull changes';
+  if (j) $('pullOut').innerHTML = `<div class="pull">${j.results.map((r) => `${r.ok ? '✔' : '⚠'} ${esc(r.name)}\n${r.lines.map((l) => '   ' + esc(l)).join('\n')}`).join('\n')}</div>`;
+  loadProjects();
+};
+
+// ---- runs ----
+async function loadHist() {
+  const j = await (await fetch('/api/coverage/runs')).json();
+  $('hist').innerHTML = j.runs.map((r) => `<li data-id="${r.id}" class="${r.id === current ? 'sel' : ''}">
+      <span class="dot ${stateDot(r.state)}"></span><span class="t" title="${esc(r.title)}">${esc(r.title || '(no title)')}</span>${['working', 'waiting', 'starting'].includes(r.state) ? '' : `<button class="del" data-del="${r.id}" title="Delete">✕</button>`}
+      ${r.result ? `<span class="badge ${badgeClass(r.result)}">${esc(r.result)}</span>` : `<span class="meta">${esc(stateLabel(r.state))}</span>`}
+      <span class="when">${new Date(r.started).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></li>`).join('')
+    || '<li class="meta">No runs yet.</li>';
+  return j;
+}
+
+const runInUrl = () => new URLSearchParams(location.search).get('run');
+function showNew(push = true) {
+  current = null; R = null;
+  $('run').hidden = true; $('noRun').hidden = false;
+  if (push && runInUrl()) history.pushState(null, '', '/coverage');
+  loadHist();
+}
+function open(id, push = true) {
+  if (push && runInUrl() !== id) history.pushState(null, '', `/coverage?run=${encodeURIComponent(id)}`);
+  current = id; R = null; events = []; askKey = null;
+  $('feed').innerHTML = ''; $('askBox').innerHTML = ''; $('reportBox').innerHTML = '';
+  $('noRun').hidden = true; $('run').hidden = false;
+  poll(); loadHist();
+}
+
+async function poll() {
+  if (!current) return;
+  const id = current;
+  const r = await fetch(`/api/coverage/run/${id}?since=${events.length}`);
+  if (!r.ok || id !== current) return;
+  const j = await r.json();
+  const prevState = R && R.state;
+  R = j;
+  const feed = $('feed');
+  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 60;
+  for (const e of j.events) {
+    events.push(e);
+    let el;
+    if (e.kind === 'tool') { el = document.createElement('div'); el.className = 'tool'; el.innerHTML = `▸ <b>${esc(e.text)}</b> ${esc(e.detail || '')}`; el.title = e.detail || ''; }
+    else {
+      el = document.createElement('div');
+      el.className = 'msg ' + ({ user: 'user', agent: 'agent', 'tool-error': 'err', error: 'err', info: 'info' }[e.kind] || 'info');
+      if (e.kind === 'agent') el.innerHTML = md(clean(e.text)); else el.textContent = e.kind === 'tool-error' ? `Tool error: ${e.text}` : e.text;
+    }
+    feed.appendChild(el);
+  }
+  if (atBottom || j.events.length) feed.scrollTop = feed.scrollHeight;
+
+  $('rTitle').textContent = j.title || '';
+  $('rDot').className = 'dot ' + stateDot(j.state);
+  $('rBadge').textContent = j.result || stateLabel(j.state);
+  $('rBadge').className = 'badge ' + badgeClass(j.result);
+  const live = ['working', 'waiting', 'starting'].includes(j.state);
+  $('stopBtn').hidden = !live;
+  $('closeBtn').hidden = !(live || j.alive);
+  $('delBtn').hidden = live;
+  renderAsk(j);
+  renderReport(j);
+  $('changedBox').innerHTML = j.changed && j.changed.length
+    ? `<div class="row" style="margin-top:14px"><b>Files changed by the agent</b><span class="meta">(test repo, not committed: review them in git before you commit)</span></div><div class="pull">${j.changed.map(esc).join('\n')}</div>`
+    : '';
+  if (prevState && prevState !== j.state) { loadHist(); if (j.state === 'done' && j.mode === 'changes') loadProjects(); if (j.state === 'waiting' || j.state === 'done') notify(j); }
+}
+
+// Waiting: a plan gets "Approve" + a box to change it; a question gets an answer box.
+// Done: the chat stays open for follow-ups while the agent is alive, else a follow-up starts a new run.
+function renderAsk(j) {
+  const key = j.state + j.alive + (j.state === 'waiting' && j.ask ? JSON.stringify(j.ask) : '');
+  if (key === askKey) return;
+  askKey = key;
+  const box = $('askBox');
+  if (j.state === 'working' || j.state === 'starting') { box.innerHTML = '<div class="meta" style="margin-top:10px">⏳ The agent is reading the code…</div>'; return; }
+  if (j.state === 'waiting' && j.ask) {
+    const plan = j.ask.plan;
+    box.innerHTML = `<div class="ask ${plan ? 'plan' : ''}"><div class="q"><b>${plan ? '📋 The agent wants to do this — approve or change it' : '❓ The agent asks'}</b></div>
+      <label for="replyText">${plan ? 'Change the plan (optional)' : 'Your answer'}</label>
+      <textarea id="replyText" placeholder="${plan ? 'e.g. Skip invoices, focus on cancellation and its DB updates.' : 'Type your answer…'}"></textarea>
+      <div class="row" style="margin-top:8px">${plan ? '<button class="primary" id="approveBtn">✔ Approve</button><button id="sendBtn">Send changes</button>' : '<button class="primary" id="sendBtn">Send</button>'}<button id="ignoreBtn" title="The agent drops what it suggested. Text in the box is sent as what to do instead.">✕ Ignore</button><span class="meta">Ctrl+Enter sends</span></div></div>`;
+  } else if (['done', 'stopped', 'failed'].includes(j.state)) {
+    const live = j.alive && j.state === 'done';
+    box.innerHTML = `<div class="ask"><div class="q"><b>${live ? 'Chat with the agent' : 'Follow up'}</b>
+      <div class="meta">${live ? 'The agent is still open (it closes after 15 idle minutes).' : 'Starts a new run that already knows this analysis and its report.'}</div></div>
+      <textarea id="replyText" placeholder="e.g. Go deeper on the refund DB updates. / Which of these are High priority?"></textarea>
+      <div class="row" style="margin-top:8px"><button class="primary" id="sendBtn">${live ? 'Send' : 'Start follow-up run'}</button><span class="meta">Ctrl+Enter sends</span></div></div>`;
+  } else { box.innerHTML = ''; return; }
+
+  const send = async (approve, ignore) => {
+    const text = $('replyText').value.trim();
+    if (!approve && !ignore && !text) { toast('Type a message first.'); return; }
+    for (const b of box.querySelectorAll('button')) b.disabled = true;
+    let ok;
+    if (j.state === 'waiting' || (j.alive && j.state === 'done')) ok = await post(`/api/coverage/${current}/reply`, { text, approve: !!approve, ignore: !!ignore });
+    else {
+      const instructions = `Follow-up to an earlier coverage run (${j.title}).\n\nEarlier instructions:\n${j.instructions || '(none)'}\n\nEarlier report:\n${j.report || '(no report: the run ended early)'}\n\nWhat to do now:\n${text}`;
+      const r = await post('/api/coverage/start', { mode: 'gaps', apps: j.apps || [], instructions });
+      if (r && r.id) { open(r.id); return; }
+    }
+    if (!ok) { for (const b of box.querySelectorAll('button')) b.disabled = false; return; }
+    askKey = null; poll();
+  };
+  $('sendBtn').onclick = () => send(false);
+  if ($('approveBtn')) $('approveBtn').onclick = () => send(true);
+  if ($('ignoreBtn')) $('ignoreBtn').onclick = () => send(false, true);
+  box.onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(!!$('approveBtn') && !$('replyText').value.trim()); };
+  $('replyText').focus();
+}
+
+function renderReport(j) {
+  if (!j.report) { $('reportBox').innerHTML = ''; return; }
+  const html = `<div class="row" style="margin-top:14px"><b>Report</b><span style="flex:1"></span><button id="copyBtn">Copy</button></div><div class="report">${md(j.report)}</div>`;
+  if ($('reportBox').dataset.k === html) return;
+  $('reportBox').dataset.k = html;
+  $('reportBox').innerHTML = html;
+  $('copyBtn').onclick = () => navigator.clipboard.writeText(j.report).then(() => toast('Report copied'));
+}
+
+function notify(j) {
+  document.title = (j.state === 'waiting' ? '❓ ' : '✔ ') + 'Coverage agent';
+  const body = j.state === 'done' ? `Report ready: ${j.result}` : j.ask && j.ask.plan ? 'The agent waits for your approval' : 'The agent has a question for you';
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification('Coverage agent', { body });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) document.title = 'Circuly coverage agent'; });
+document.addEventListener('click', () => { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); }, { once: true });
+
+async function start(mode) {
+  const apps = [...$('apps').querySelectorAll('input:checked')].map((i) => i.value);
+  for (const b of [$('gapsBtn'), $('changesBtn')]) b.disabled = true;
+  const j = await post('/api/coverage/start', { mode, apps, instructions: $('instr').value });
+  for (const b of [$('gapsBtn'), $('changesBtn')]) b.disabled = false;
+  if (j && j.id) { $('instr').value = ''; open(j.id); }
+}
+$('gapsBtn').onclick = () => start('gaps');
+$('changesBtn').onclick = () => start('changes');
+$('closeBtn').onclick = async () => {
+  if (!confirm('Close this chat? The agent stops; the history and report stay in the list.')) return;
+  if (await post(`/api/coverage/${current}/close`)) showNew();
+};
+$('stopBtn').onclick = async () => { if (confirm('Stop the agent?')) { await post(`/api/coverage/${current}/stop`); poll(); loadHist(); } };
+$('hist').onclick = (e) => { const d = e.target.closest('[data-del]'); if (d) { e.stopPropagation(); delRun(d.dataset.del); return; } const li = e.target.closest('li[data-id]'); if (li) open(li.dataset.id); };
+async function delRun(id) {
+  if (!confirm('Delete this run and its report? This cannot be undone.')) return;
+  if (!(await post(`/api/coverage/${id}/delete`))) return;
+  if (id === current) showNew(); else loadHist();
+}
+$('delBtn').onclick = () => delRun(current);
+$('newBtn').onclick = () => showNew();
+window.addEventListener('popstate', () => { const id = runInUrl(); if (id) open(id, false); else showNew(false); });
+
+loadProjects();
+loadHist().then((j) => {
+  const id = runInUrl();
+  if (id) open(id, false);
+  else if (j.active) { history.replaceState(null, '', `/coverage?run=${encodeURIComponent(j.active.id)}`); open(j.active.id, false); }
+});
+setInterval(() => { if (R && (['working', 'waiting', 'starting'].includes(R.state) || R.alive)) poll(); }, 1500);
+setInterval(loadHist, 10000);
+</script>
+</body>
+</html>

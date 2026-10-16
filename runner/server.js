@@ -4,6 +4,7 @@
 // Reports (open, PDF, zip, delete, compare), History (pass rate, unstable tests), Settings (.env),
 // Claude (Ask Claude on a failed test, see runner/claude.js). tests/ is watched so the counts stay right.
 // /qa = QA agent: tests a Linear ticket or instructions in the dev apps (runner/qa-agent.js).
+// /coverage = coverage agent: reads the project repos and lists missing test cases (runner/coverage-agent.js).
 //
 // It starts the Playwright CLI as a child process and streams the output to the page.
 // The summary reporter prints @@TOTAL / @@RUNNING / @@DONE lines (when TEST_RUNNER_UI is set),
@@ -561,8 +562,9 @@ async function qaEnvironment() {
 }
 
 const qa = require('./qa-agent')({ root: ROOT, killTree, environment: qaEnvironment });
-process.on('SIGINT', () => { qa.shutdown(); process.exit(0); });
-process.on('exit', () => qa.shutdown());
+const coverage = require('./coverage-agent')({ root: ROOT, killTree, testRunning: () => (isRunning() ? run.project : null) });
+process.on('SIGINT', () => { qa.shutdown(); coverage.shutdown(); process.exit(0); });
+process.on('exit', () => { qa.shutdown(); coverage.shutdown(); });
 
 // QA agent POSTs start a Claude process and a browser: only from the runner's own page.
 function fromRunnerPage(req) {
@@ -680,6 +682,44 @@ const server = http.createServer(async (req, res) => {
       if (m[2] === 'stop') qa.stop(m[1]);
       if (m[2] === 'delete') qa.remove(m[1]);
       if (m[2] === 'post') return json(res, 200, await qa.postToLinear(m[1]));
+      return json(res, 200, { ok: true });
+    }
+
+    // ---- coverage agent (runner/coverage-agent.js) ----
+    if (req.method === 'GET' && p === '/coverage') {
+      res.writeHead(200, { 'Content-Type': TYPES['.html'] });
+      return res.end(fs.readFileSync(path.join(__dirname, 'coverage.html')));
+    }
+    // ---- merges view (runner/merges.html, data from coverage-agent.js) ----
+    if (req.method === 'GET' && p === '/merges') {
+      res.writeHead(200, { 'Content-Type': TYPES['.html'] });
+      return res.end(fs.readFileSync(path.join(__dirname, 'merges.html')));
+    }
+    if (p === '/api/merges' && req.method === 'GET') {
+      return json(res, 200, await coverage.merges({ days: q('days'), branch: q('branch'), repos: (q('repos') || '').split(',').filter(Boolean) }));
+    }
+    if (p === '/api/merges/files' && req.method === 'GET') return json(res, 200, await coverage.mergeFiles(q('repo'), q('sha')));
+    if (p === '/api/merges/fetch' && req.method === 'POST') {
+      if (!fromRunnerPage(req)) return json(res, 403, { error: 'Only from the runner page.' });
+      return json(res, 200, { results: await coverage.fetchAll() });
+    }
+    if (p === '/api/coverage/projects' && req.method === 'GET') return json(res, 200, { projects: await coverage.projects() });
+    if (p === '/api/coverage/runs' && req.method === 'GET') return json(res, 200, { runs: coverage.list(), active: coverage.active() });
+    if (p.startsWith('/api/coverage/run/') && req.method === 'GET') {
+      const found = coverage.get(p.slice('/api/coverage/run/'.length), Number(q('since')) || 0);
+      return found ? json(res, 200, found) : json(res, 404, { error: 'Run not found.' });
+    }
+    if (p.startsWith('/api/coverage/') && req.method === 'POST') {
+      if (!fromRunnerPage(req)) return json(res, 403, { error: 'Only from the runner page.' });
+      const body = await readBody(req);
+      if (p === '/api/coverage/pull') return json(res, 200, { results: await coverage.pull() });
+      if (p === '/api/coverage/start') return json(res, 200, { id: await coverage.start(body) });
+      const m = p.match(/^\/api\/coverage\/([\w-]+)\/(reply|stop|close|delete)$/);
+      if (!m) return json(res, 404, { error: 'Not found' });
+      if (m[2] === 'reply') coverage.reply(m[1], body);
+      if (m[2] === 'stop') coverage.stop(m[1]);
+      if (m[2] === 'close') coverage.close(m[1]);
+      if (m[2] === 'delete') coverage.remove(m[1]);
       return json(res, 200, { ok: true });
     }
 

@@ -88,7 +88,7 @@
 <header>
   <h1>QA agent</h1>
   <span>Give it a Linear ticket or instructions. It asks you questions, tests the dev apps and APIs, can run a suite, and posts the report to the ticket.</span>
-  <a href="/" style="margin-left:auto">← Test runner</a>
+  <a href="/" style="margin-left:auto" id="backLink">← Test runner</a>
 </header>
 
 <main>
@@ -146,6 +146,8 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
+// shown as a tab inside the test runner: no back link needed
+if (window.top !== window) $('backLink').hidden = true;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let current = null;   // id of the run shown
 let R = null;         // its data

@@ -16,6 +16,9 @@
   #server { font-size: 13px; padding: 4px 10px; border-radius: 12px; background: #2d333b; }
   #server.on { color: #7ee787; } #server.off { color: #ff7b72; background: #3d1f20; }
   main { padding: 12px 18px; width: 100%; }
+  /* QA agent / Coverage agent tabs: their page in a frame, loaded once and kept while switching tabs */
+  .agent-page { margin: -12px -18px; }
+  .agent-page iframe { display: block; width: 100%; height: calc(100vh - 66px); border: 0; }
   .panel { background: white; border-radius: 10px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.06); margin-bottom: 12px; }
   .panel h2 { margin: 0 0 8px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
   label.h { display: block; font-size: 12px; text-transform: uppercase; color: #4b5563; margin: 10px 0 5px; font-weight: 600; }
@@ -91,8 +94,10 @@
     <button data-tab="history">📈 History</button>
     <button data-tab="claude">🤖 Claude</button>
     <button data-tab="settings">⚙ Settings</button>
+    <button data-tab="qa" title="Test a Linear ticket or instructions in the dev apps">🧪 QA agent</button>
+    <button data-tab="coverage" title="Find missing test cases in the project repos">🔎 Coverage agent</button>
+    <button data-tab="merges" title="What was merged to development / main in the last days">🔀 Merges</button>
   </div>
-  <a href="/qa" style="color:white;text-decoration:none;font-weight:600" title="Test a Linear ticket or instructions in the dev apps">🧪 QA agent</a>
   <div id="run-pill"></div>
   <div id="server" class="off" title="Is the runner server (npm run runner) running?">● Server off</div>
 </header>
@@ -261,6 +266,10 @@
       </table>
     </div>
   </div>
+  <!-- ======================= AGENT TABS ======================= -->
+  <div id="page-qa" class="hidden agent-page"><iframe data-src="/qa" title="QA agent"></iframe></div>
+  <div id="page-coverage" class="hidden agent-page"><iframe data-src="/coverage" title="Coverage agent"></iframe></div>
+  <div id="page-merges" class="hidden agent-page"><iframe data-src="/merges" title="Merges"></iframe></div>
 </main>
 
 <script>
@@ -273,8 +282,13 @@
 
   // ---------- tabs ----------
   document.querySelectorAll('.tabs button').forEach((button) => (button.onclick = () => showTab(button.dataset.tab)));
+  const TABS = ['run', 'reports', 'history', 'claude', 'settings', 'qa', 'coverage', 'merges'];
   function showTab(name) {
-    for (const tab of ['run', 'reports', 'history', 'claude', 'settings']) $(`page-${tab}`).classList.toggle('hidden', tab !== name);
+    if (!TABS.includes(name)) name = 'run';
+    for (const tab of TABS) $(`page-${tab}`).classList.toggle('hidden', tab !== name);
+    const frame = $(`page-${name}`).querySelector('iframe');
+    if (frame && !frame.src) frame.src = frame.dataset.src;
+    history.replaceState(null, '', name === 'run' ? location.pathname : `#${name}`);
     document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
     if (name === 'reports') loadReports();
     if (name === 'history') loadHistory();
@@ -771,6 +785,7 @@
       setTimeout(startPage, 3000);
     }
   }
+  if (location.hash) showTab(location.hash.slice(1)); // e.g. /#coverage opens that tab
   connect();
   startPage();
 </script>

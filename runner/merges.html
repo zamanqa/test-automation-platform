@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuly merges</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #677085; --line: #e3e6ec;
+    --accent: #3b5bdb; --accent-text: #fff; --ok: #2f9e44; --warn: #e67700; --bad: #e03131; --code: #f1f3f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa2b4; --line: #2d313b;
+      --accent: #5c7cfa; --accent-text: #fff; --ok: #51cf66; --warn: #ffa94d; --bad: #ff6b6b; --code: #121418;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { max-width: 1800px; margin: 0 auto; padding: 18px 24px 6px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; }
+  header span { color: var(--muted); }
+  main { max-width: 1800px; margin: 0 auto; padding: 12px 24px 40px; display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .bar { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .bar .group { display: flex; gap: 6px; align-items: center; }
+  .bar .lbl { color: var(--muted); font-size: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button.on { background: var(--accent); color: var(--accent-text); }
+  button { font: inherit; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  input[type=number], input[type=search] { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+  input[type=number] { width: 70px; }
+  .checks label { display: inline-flex; gap: 5px; align-items: center; margin-right: 10px; font-size: 13px; }
+  .meta { color: var(--muted); font-size: 12px; }
+  a { color: var(--accent); }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .badge.ok { color: var(--ok); border-color: var(--ok); } .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .badge.PR { color: var(--accent); border-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  tr.row { cursor: pointer; } tr.row:hover td { background: var(--bg); }
+  tr.sync td { color: var(--muted); }
+  td.when { white-space: nowrap; }
+  td.title { min-width: 280px; }
+  .files { white-space: pre; font: 12px/1.4 ui-monospace, Consolas, monospace; background: var(--code); border-radius: 6px; padding: 8px; overflow: auto; max-height: 360px; }
+  .day td { background: var(--bg); font-weight: 600; font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 20px 0; text-align: center; }
+  .scroll { overflow-x: auto; }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--bad); color: #fff; padding: 10px 14px; border-radius: 8px; display: none; }
+  @media (max-width: 860px) { main, header { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Merges</h1>
+  <span>What landed on development or main in the last days, when, and what is not in the other branch yet. Read from GitHub (origin), nothing is changed.</span>
+  <a href="/" style="margin-left:auto" id="backLink">← Test runner</a>
+</header>
+
+<main>
+  <section class="card">
+    <div class="bar">
+      <div class="group"><span class="lbl">Branch</span>
+        <div class="seg" id="branchSeg"><button data-v="development" class="on">development</button><button data-v="main">main</button></div></div>
+      <div class="group"><span class="lbl">Last</span>
+        <div class="seg" id="daysSeg"><button data-v="1">1 day</button><button data-v="3">3</button><button data-v="7" class="on">7</button><button data-v="14">14</button><button data-v="30">30</button></div>
+        <input type="number" id="days" min="1" max="365" value="7" title="Any number of days"> <span class="lbl">days</span></div>
+      <div class="group checks" id="repos">
+        <label><input type="checkbox" value="frontend" checked> Frontend</label>
+        <label><input type="checkbox" value="core-api" checked> Core API</label>
+        <label><input type="checkbox" value="checkout-api" checked> Checkout API</label>
+        <label><input type="checkbox" value="customers-api" checked> Customers API</label>
+        <label><input type="checkbox" value="tests" checked> Test automation</label>
+      </div>
+      <div class="group checks">
+        <label title="Hide the &quot;Merge branch 'main' into development&quot; lines"><input type="checkbox" id="hideSync" checked> Hide sync merges</label>
+        <label><input type="checkbox" id="onlyMissing"> Only not in <span class="otherName">main</span></label>
+      </div>
+      <input type="search" id="search" placeholder="Filter: title, author, ticket, PR…">
+      <span style="flex:1"></span>
+      <button id="fetchBtn" title="git fetch of development + main in the 5 repos (no checkout, no reset)">⟳ Fetch from GitHub</button>
+    </div>
+    <div class="meta" id="times" style="margin-top:8px"></div>
+  </section>
+  <div id="out"><div class="empty">Loading…</div></div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// shown as a tab inside the test runner: no back link needed
+if (window.top !== window) $('backLink').hidden = true;
+let data = null;
+
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 6000); }
+const seg = (id) => $(id).querySelector('.on').dataset.v;
+const ago = (t) => {
+  const m = Math.round((Date.now() - t) / 60000);
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+};
+const when = (iso) => new Date(iso).toLocaleString([], { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const dayKey = (iso) => new Date(iso).toLocaleDateString([], { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+
+// The last choice is kept in the URL (/merges?branch=main&days=14): reload keeps it.
+function readUrl() {
+  const u = new URLSearchParams(location.search);
+  if (u.get('branch')) for (const b of $('branchSeg').children) b.classList.toggle('on', b.dataset.v === u.get('branch'));
+  if (u.get('days')) setDays(u.get('days'));
+}
+function setDays(v) {
+  $('days').value = v;
+  for (const b of $('daysSeg').children) b.classList.toggle('on', b.dataset.v === String(v));
+}
+
+async function load() {
+  const repos = [...$('repos').querySelectorAll('input:checked')].map((i) => i.value);
+  const days = Number($('days').value) || 7;
+  const branch = seg('branchSeg');
+  history.replaceState(null, '', `/merges?branch=${branch}&days=${days}`);
+  $('out').innerHTML = '<div class="empty">Loading…</div>';
+  const r = await fetch(`/api/merges?days=${days}&branch=${branch}&repos=${repos.join(',')}`);
+  data = await r.json();
+  if (!r.ok) { $('out').innerHTML = `<div class="empty">${esc(data.error || 'Failed')}</div>`; return; }
+  render();
+}
+
+function render() {
+  if (!data) return;
+  for (const el of document.querySelectorAll('.otherName')) el.textContent = data.other;
+  const pulls = Object.values(data.lastPull || {});
+  $('times').textContent = `Last pull: ${pulls.length ? `${new Date(Math.max(...pulls)).toLocaleString()} (${ago(Math.max(...pulls))})` : 'never'}`
+    + ` · last fetch: ${data.lastFetch ? `${new Date(data.lastFetch).toLocaleString()} (${ago(data.lastFetch)})` : 'never'}`
+    + ' · the list shows GitHub as of the newer of the two.';
+  const term = $('search').value.trim().toLowerCase();
+  const hideSync = $('hideSync').checked;
+  const onlyMissing = $('onlyMissing').checked;
+  $('out').innerHTML = data.repos.map((repo) => {
+    if (repo.missing) return `<section class="card"><h2>${esc(repo.name)}</h2><div class="empty">Repo not found.</div></section>`;
+    const rows = repo.commits.filter((c) => (!hideSync || c.kind !== 'sync') && (!onlyMissing || !c.inOther)
+      && (!term || `${c.subject} ${c.author} ${c.tickets.join(' ')} ${c.pr || ''} ${c.from || ''} ${c.short}`.toLowerCase().includes(term)));
+    const prs = repo.commits.filter((c) => c.kind === 'PR').length;
+    const missing = repo.commits.filter((c) => !c.inOther && c.kind !== 'sync').length;
+    let lastDay = '';
+    const body = rows.map((c) => {
+      const d = dayKey(c.date);
+      const head = d !== lastDay ? `<tr class="day"><td colspan="6">${esc(d)}</td></tr>` : '';
+      lastDay = d;
+      const kind = c.kind === 'PR' ? `<span class="badge PR">PR #${c.pr}${c.squash ? ' · squash' : ''}</span>`
+        : c.kind === 'sync' ? `<span class="badge">sync from ${esc(c.from)}</span>`
+        : c.kind === 'direct' ? '<span class="badge warn" title="Pushed straight to the branch, no PR">direct commit</span>' : '<span class="badge">merge</span>';
+      const other = c.inOther ? `<span class="badge ok">in ${esc(data.other)}</span>` : `<span class="badge warn">not in ${esc(data.other)}</span>`;
+      return `${head}<tr class="row ${c.kind === 'sync' ? 'sync' : ''}" data-repo="${repo.id}" data-sha="${c.sha}">
+        <td class="when" title="${esc(when(c.date))}">${esc(new Date(c.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</td>
+        <td>${kind}</td>
+        <td class="title"><a href="${esc(c.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(c.subject)}</a>
+          ${c.from ? `<div class="meta">from ${esc(c.from)}</div>` : ''}</td>
+        <td>${c.tickets.map((t) => `<span class="badge">${esc(t)}</span>`).join(' ')}</td>
+        <td>${esc(c.author)}</td>
+        <td>${other} <span class="meta">${esc(c.short)}</span></td></tr>`;
+    }).join('');
+    return `<section class="card"><h2>${esc(repo.name)} <span class="badge">${repo.commits.length} change(s) on ${esc(data.branch)} in ${data.days} day(s)</span>
+        <span class="badge PR">${prs} PR(s)</span>
+        <span class="badge ${missing ? 'warn' : 'ok'}">${missing} of these not in ${esc(data.other)}</span>
+        <span class="meta">${repo.notInOtherCount} commit(s) on ${esc(data.branch)} are not in ${esc(data.other)} in total</span>
+        <span style="flex:1"></span><a href="${esc(repo.url)}/commits/${esc(data.branch)}" target="_blank" rel="noopener">GitHub ↗</a></h2>
+      ${repo.error ? `<div class="meta" style="color:var(--bad)">${esc(repo.error)}</div>` : ''}
+      ${rows.length ? `<div class="scroll"><table><thead><tr><th>Time</th><th>Type</th><th>Title</th><th>Ticket</th><th>Author</th><th>In ${esc(data.other)}?</th></tr></thead><tbody>${body}</tbody></table></div>`
+        : '<div class="empty">Nothing in this period.</div>'}</section>`;
+  }).join('');
+}
+
+// Click a row: the files it changed (diff to its first parent), shown below the row.
+$('out').onclick = async (e) => {
+  const tr = e.target.closest('tr.row');
+  if (!tr) return;
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('detail')) { next.remove(); return; }
+  const detail = document.createElement('tr');
+  detail.className = 'detail';
+  detail.innerHTML = '<td colspan="6"><div class="files">Loading…</div></td>';
+  tr.after(detail);
+  const r = await fetch(`/api/merges/files?repo=${tr.dataset.repo}&sha=${tr.dataset.sha}`);
+  const j = await r.json();
+  detail.querySelector('.files').textContent = r.ok ? (j.files || '(no files)') : (j.error || 'Failed');
+};
+
+$('branchSeg').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; for (const x of $('branchSeg').children) x.classList.toggle('on', x === b); load(); };
+$('daysSeg').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; setDays(b.dataset.v); load(); };
+$('days').onchange = () => { setDays($('days').value); load(); };
+$('repos').onchange = load;
+for (const id of ['hideSync', 'onlyMissing']) $(id).onchange = render;
+$('search').oninput = render;
+$('fetchBtn').onclick = async () => {
+  $('fetchBtn').disabled = true; $('fetchBtn').textContent = '⟳ Fetching…';
+  const r = await fetch('/api/merges/fetch', { method: 'POST', headers: { 'X-Runner': '1' } });
+  const j = await r.json().catch(() => ({}));
+  $('fetchBtn').disabled = false; $('fetchBtn').textContent = '⟳ Fetch from GitHub';
+  if (!r.ok) return toast(j.error || 'Fetch failed');
+  const bad = j.results.filter((x) => !x.ok);
+  if (bad.length) toast(bad.map((x) => `${x.name}: ${x.error}`).join(' · '));
+  load();
+};
+readUrl();
+load();
+</script>
+</body>
+</html>
