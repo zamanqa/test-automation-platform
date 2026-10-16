@@ -5,6 +5,8 @@ node_modules/
 
 # Test reports: reports/<suite>/<run>/ (see playwright.config.ts)
 /reports/
+# QA agent runs (/qa): conversation, report, screenshots
+/runner/runs/
 # old report folders (before 2026-09-28)
 /test-results/
 /playwright-report/

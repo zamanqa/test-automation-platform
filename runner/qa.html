@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuly QA agent</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #677085; --line: #e3e6ec;
+    --accent: #3b5bdb; --accent-text: #fff; --ok: #2f9e44; --warn: #e67700; --bad: #e03131; --idle: #adb5bd;
+    --code: #f1f3f5; --me: #e7ecff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa2b4; --line: #2d313b;
+      --accent: #5c7cfa; --accent-text: #fff; --ok: #51cf66; --warn: #ffa94d; --bad: #ff6b6b; --idle: #5c6370;
+      --code: #121418; --me: #252b40;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { max-width: 1800px; margin: 0 auto; padding: 18px 24px 6px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; }
+  header span { color: var(--muted); }
+  main { padding: 12px 24px 40px; display: grid; gap: 16px; grid-template-columns: 240px minmax(300px, 360px) minmax(0, 1fr); max-width: 1800px; margin: 0 auto; align-items: start; }
+  main > * { min-width: 0; }
+  .rail { position: sticky; top: 12px; padding: 12px; }
+  .rail .hist { max-height: calc(100vh - 150px); }
+  .rail .hist li { flex-wrap: wrap; row-gap: 2px; }
+  .hist .del { padding: 0 6px; border: 0; background: none; color: var(--muted); font-size: 12px; visibility: hidden; }
+  .hist li:hover .del { visibility: visible; } .hist .del:hover { color: var(--bad); }
+  .rail .hist .when { width: 100%; padding-left: 17px; font-size: 11px; color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button.on { background: var(--accent); color: var(--accent-text); }
+  .side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; position: sticky; top: 12px; }
+  .card { min-width: 0; }
+  .hist li { min-width: 0; }
+  #runCard { min-height: calc(100vh - 110px); display: flex; flex-direction: column; }
+  #run { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  #run[hidden] { display: none; }
+  #noRun { margin: auto; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  label { display: block; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
+  input[type=text], input[type=password], textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+  textarea { resize: vertical; min-height: 70px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .checks label { display: inline-flex; gap: 5px; align-items: center; margin: 0 12px 0 0; color: var(--text); font-size: 13px; }
+  button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .45; cursor: default; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--idle); flex: none; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+  .meta { color: var(--muted); font-size: 12px; }
+  a { color: var(--accent); }
+  .hist { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow: auto; }
+  .hist li { padding: 7px 8px; border-radius: 6px; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+  .hist li:hover, .hist li.sel { background: var(--bg); }
+  .hist .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); }
+  .badge.PASSED { color: var(--ok); border-color: var(--ok); } .badge.FAILED { color: var(--bad); border-color: var(--bad); }
+  .badge.BLOCKED { color: var(--warn); border-color: var(--warn); }
+  #feed { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 200px; max-height: 62vh; overflow: auto; padding-right: 4px; }
+  .msg { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; }
+  .msg.user { background: var(--me); align-self: flex-end; max-width: 80%; }
+  .msg.agent { background: var(--card); }
+  .msg.err { border-color: var(--bad); color: var(--bad); }
+  .msg.info { border-style: dashed; color: var(--muted); }
+  .tool { font: 12px/1.4 ui-monospace, Consolas, monospace; color: var(--muted); padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tool b { color: var(--text); font-weight: 600; }
+  .ask { border: 2px solid var(--accent); border-radius: 10px; padding: 12px; margin-top: 12px; }
+  .ask .q { white-space: pre-wrap; margin-bottom: 8px; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 8px; }
+  .shots a img { width: 100%; border: 1px solid var(--line); border-radius: 6px; display: block; }
+  .report { border: 1px solid var(--line); border-radius: 8px; padding: 4px 14px; margin-top: 12px; }
+  .report h2, .report h3 { margin: 12px 0 6px; } .report h2 { font-size: 16px; } .report h3 { font-size: 14px; }
+  .report ul { margin: 4px 0; padding-left: 20px; }
+  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--bad); color: #fff; padding: 10px 14px; border-radius: 8px; max-width: 90vw; display: none; }
+  @media (max-width: 1100px) { main { grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); } .rail { grid-column: 1 / -1; position: static; } .rail .hist { max-height: 180px; } }
+  @media (max-width: 860px) { .side { position: static; } #runCard { min-height: 0; } main { grid-template-columns: 1fr; padding-left: 16px; padding-right: 16px; } header { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>QA agent</h1>
+  <span>Give it a Linear ticket or instructions. It asks you questions, tests the dev apps and APIs, can run a suite, and posts the report to the ticket.</span>
+  <a href="/" style="margin-left:auto">← Test runner</a>
+</header>
+
+<main>
+  <nav class="card rail">
+    <h2>Last 10 tasks</h2>
+    <button id="newBtn" style="width:100%;margin-bottom:8px">＋ New task</button>
+    <ul class="hist" id="hist"></ul>
+  </nav>
+  <div class="side">
+    <section class="card">
+      <h2>New task</h2>
+      <label for="ticket">Linear ticket ID (optional)</label>
+      <input type="text" id="ticket" placeholder="e.g. CIR-1234" spellcheck="false">
+      <label for="instr">Instructions (optional with a ticket)</label>
+      <textarea id="instr" placeholder="What should be tested? Anything to focus on or avoid?"></textarea>
+      <label>Apps to test</label>
+      <div class="checks" id="apps">
+        <label><input type="checkbox" value="Hub" checked> Hub</label>
+        <label><input type="checkbox" value="Checkout"> Checkout</label>
+        <label><input type="checkbox" value="POS"> POS</label>
+        <label><input type="checkbox" value="CSS"> CSS</label>
+        <label><input type="checkbox" value="Customer API"> Customer API</label>
+        <label><input type="checkbox" value="Unified API"> Unified API</label>
+      </div>
+      <label>Browser</label>
+      <div class="seg" id="browserSeg">
+        <button data-mode="headed" class="on" title="You see the browser window while the agent works">Headed</button>
+        <button data-mode="headless" title="No window: lighter on memory and CPU">Headless</button>
+      </div>
+      <label class="checks" style="margin-top:12px"><input type="checkbox" id="autoPost" checked> Post the report to the Linear ticket when done</label>
+      <div class="row" style="margin-top:14px">
+        <button class="primary" id="startBtn">▶ Start agent</button>
+      </div>
+      <div class="meta" style="margin-top:10px">The agent asks before it tests, and asks you for any login it needs. Logins are not saved: they are hidden in the history and kept only while the run is active.</div>
+    </section>
+  </div>
+
+  <section class="card" id="runCard">
+    <div class="empty" id="noRun">Start a task on the left, or open a past run.</div>
+    <div id="run" hidden>
+      <h2><span class="dot" id="rDot"></span> <span id="rTitle"></span> <span class="badge" id="rBadge"></span>
+        <span style="flex:1"></span>
+        <button id="editBtn" title="Copy this task into New task to change it and run it again">Edit</button>
+        <button class="danger" id="stopBtn">Stop</button>
+        <button class="danger" id="delBtn" title="Delete this task, its report and screenshots">Delete</button></h2>
+      <div id="feed"></div>
+      <div id="askBox"></div>
+      <div id="shots"></div>
+      <div id="reportBox"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let current = null;   // id of the run shown
+let R = null;         // its data
+let events = [];
+let askKey = null;
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 6000);
+}
+async function post(p, body) {
+  const r = await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Runner': '1' }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(j.error || 'Request failed'); return null; }
+  return j;
+}
+
+// Small markdown: headings, bold, inline code, lists, links. Enough for the report and agent messages.
+function md(src) {
+  const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/(https?:\/\/[^\s)<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  let html = '', list = 0;
+  for (const raw of String(src).split('\n')) {
+    const m = raw.match(/^(\s*)[-*] (.*)$/);
+    const depth = m ? Math.floor(m[1].length / 2) + 1 : 0;
+    while (list > depth) { html += '</ul>'; list--; }
+    while (list < depth) { html += '<ul>'; list++; }
+    if (m) { html += `<li>${inline(m[2])}</li>`; continue; }
+    const h = raw.match(/^(#{1,4}) (.*)$/);
+    if (h) html += `<h${Math.min(h[1].length + 1, 4)}>${inline(h[2])}</h${Math.min(h[1].length + 1, 4)}>`;
+    else if (raw.trim()) html += `<div>${inline(raw)}</div>`;
+    else html += '<div style="height:6px"></div>';
+  }
+  while (list-- > 0) html += '</ul>';
+  return html;
+}
+const clean = (t) => t.replace(/\[\[REPORT\]\][\s\S]*?(\[\[\/REPORT\]\]|$)/, '(report below)').replace(/\[\[ASK\]\][\s\S]*$/, '').replace(/\[\[FIELDS:[^\]]*\]\]/, '').trim();
+
+async function loadHist() {
+  const j = await (await fetch('/api/qa/runs')).json();
+  $('hist').innerHTML = j.runs.map((r) => `<li data-id="${r.id}" class="${r.id === current ? 'sel' : ''}">
+      <span class="dot ${stateDot(r.state)}"></span><span class="t">${esc(r.title || '(no title)')}</span>${['working', 'waiting', 'starting'].includes(r.state) ? '' : `<button class="del" data-del="${r.id}" title="Delete">✕</button>`}
+      ${r.result ? `<span class="badge ${r.result}">${r.result}</span>` : `<span class="meta">${esc(stateLabel(r.state))}</span>`}
+      <span class="when">${new Date(r.started).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></li>`).join('')
+    || '<li class="meta">No runs yet.</li>';
+  return j;
+}
+const stateDot = (s) => ({ working: 'warn', starting: 'warn', waiting: 'ok', done: 'ok', failed: 'bad', stopped: '' }[s] || '');
+const stateLabel = (s) => ({ working: 'working…', starting: 'starting…', waiting: 'waiting for you', done: 'done', failed: 'failed', stopped: 'stopped' }[s] || s);
+
+// Each run has its own URL (/qa?run=<id>): links work, and back/forward move between runs.
+const runInUrl = () => new URLSearchParams(location.search).get('run');
+function showNew(push = true) {
+  current = null; R = null;
+  $('run').hidden = true; $('noRun').hidden = false;
+  if (push && runInUrl()) history.pushState(null, '', '/qa');
+  loadHist();
+}
+function open(id, push = true) {
+  if (push && runInUrl() !== id) history.pushState(null, '', `/qa?run=${encodeURIComponent(id)}`);
+  current = id; R = null; events = []; askKey = null;
+  $('feed').innerHTML = ''; $('askBox').innerHTML = ''; $('reportBox').innerHTML = ''; $('shots').innerHTML = '';
+  $('noRun').hidden = true; $('run').hidden = false;
+  poll(); loadHist();
+}
+
+async function poll() {
+  if (!current) return;
+  const id = current;
+  const r = await fetch(`/api/qa/run/${id}?since=${events.length}`);
+  if (!r.ok || id !== current) return;
+  const j = await r.json();
+  const prevState = R && R.state;
+  R = j;
+  const feed = $('feed');
+  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 60;
+  for (const e of j.events) {
+    events.push(e);
+    let el;
+    if (e.kind === 'tool') { el = document.createElement('div'); el.className = 'tool'; el.innerHTML = `▸ <b>${esc(e.text)}</b> ${esc(e.detail || '')}`; el.title = e.detail || ''; }
+    else {
+      el = document.createElement('div');
+      el.className = 'msg ' + ({ user: 'user', agent: 'agent', 'tool-error': 'err', error: 'err', info: 'info' }[e.kind] || 'info');
+      if (e.kind === 'agent') el.innerHTML = md(clean(e.text)); else el.textContent = e.kind === 'tool-error' ? `Tool error: ${e.text}` : e.text;
+    }
+    feed.appendChild(el);
+  }
+  if (atBottom || j.events.length) feed.scrollTop = feed.scrollHeight;
+
+  $('rTitle').textContent = (j.ticket ? j.ticket : (j.instructions || '').split('\n')[0].slice(0, 80));
+  $('rDot').className = 'dot ' + stateDot(j.state);
+  $('rBadge').textContent = j.result || stateLabel(j.state);
+  $('rBadge').className = 'badge ' + (j.result || '');
+  const live = ['working', 'waiting', 'starting'].includes(j.state);
+  $('stopBtn').hidden = !live;
+  $('delBtn').hidden = live;
+
+  renderAsk(j);
+  $('shots').innerHTML = j.files.length ? `<label>Screenshots</label><div class="shots">${j.files.map((f) =>
+    `<a href="/qa/file/${id}/${encodeURIComponent(f)}" target="_blank" title="${esc(f)}"><img loading="lazy" src="/qa/file/${id}/${encodeURIComponent(f)}" alt="${esc(f)}"></a>`).join('')}</div>` : '';
+  renderReport(j);
+  if (prevState && prevState !== j.state) { loadHist(); if (j.state === 'waiting' || j.state === 'done') notify(j); }
+}
+
+function renderAsk(j) {
+  const key = j.state + j.alive + (j.state === 'waiting' && j.ask ? JSON.stringify(j.ask) : '');
+  if (key === askKey) return;
+  askKey = key;
+  if (['done', 'stopped', 'failed'].includes(j.state)) return renderFollowUp(j);
+  if (!(j.state === 'waiting' && j.ask)) { $('askBox').innerHTML = j.state === 'working' || j.state === 'starting' ? '<div class="meta" style="margin-top:10px">⏳ The agent is working…</div>' : ''; return; }
+  const a = j.ask;
+  const fields = a.fields || [];
+  $('askBox').innerHTML = `<div class="ask"><div class="q">${md(a.question)}</div>
+    ${fields.map((f, i) => `<label for="f${i}">${esc(f.name)}</label><input id="f${i}" data-name="${esc(f.name)}" type="${f.secret ? 'password' : 'text'}" autocomplete="off" spellcheck="false">`).join('')}
+    <label for="replyText">${fields.length ? 'Note (optional)' : 'Your answer'}</label>
+    <textarea id="replyText" placeholder="${fields.length ? '' : 'e.g. Yes, go ahead. Also test …'}"></textarea>
+    <div class="row" style="margin-top:8px"><button class="primary" id="sendBtn">Send</button><span class="meta">Ctrl+Enter sends</span></div></div>`;
+  const send = async () => {
+    const f = {};
+    for (const el of $('askBox').querySelectorAll('input[data-name]')) f[el.dataset.name] = el.value;
+    const text = $('replyText').value;
+    $('sendBtn').disabled = true;
+    const ok = await post(`/api/qa/${current}/reply`, { text, fields: fields.length ? f : undefined });
+    if (!ok) { $('sendBtn').disabled = false; return; }
+    askKey = null; $('askBox').innerHTML = ''; poll();
+  };
+  $('sendBtn').onclick = send;
+  $('askBox').onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); };
+  ($('askBox').querySelector('input') || $('replyText')).focus();
+}
+
+// After a run: talk to the same agent while it is still open, otherwise start a new run that carries
+// this run's instructions and report.
+function renderFollowUp(j) {
+  const live = j.alive && j.state === 'done';
+  $('askBox').innerHTML = `<div class="ask"><div class="q"><b>${live ? 'Ask a follow-up or give more instructions' : 'Follow up'}</b>
+    <div class="meta">${live ? 'The agent is still open (it closes after 15 idle minutes).' : 'Starts a new run that already knows this task and its report.'}</div></div>
+    <textarea id="replyText" placeholder="e.g. Also test with an expired card. / Retest, the fix is deployed."></textarea>
+    <div class="row" style="margin-top:8px"><button class="primary" id="sendBtn">${live ? 'Send' : 'Start follow-up run'}</button><span class="meta">Ctrl+Enter sends</span></div></div>`;
+  const send = async () => {
+    const text = $('replyText').value.trim();
+    if (!text) { toast('Type what the agent should do.'); return; }
+    $('sendBtn').disabled = true;
+    if (live) {
+      const ok = await post(`/api/qa/${current}/reply`, { text });
+      if (!ok) { $('sendBtn').disabled = false; return; }
+      askKey = null; poll(); return;
+    }
+    const instructions = `Follow-up to an earlier QA run${j.ticket ? ` on ${j.ticket}` : ''}.\n\nEarlier instructions:\n${j.instructions || '(none)'}\n\nEarlier report:\n${j.report || '(no report: the run ended early)'}\n\nWhat to do now:\n${text}`;
+    const r = await post('/api/qa/start', { ticket: j.ticket || '', instructions, apps: j.apps || [], headless: !!j.headless, autoPost: j.autoPost !== false });
+    $('sendBtn').disabled = false;
+    if (r && r.id) open(r.id);
+  };
+  $('sendBtn').onclick = send;
+  $('askBox').onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); };
+}
+
+function renderReport(j) {
+  if (!j.report) { $('reportBox').innerHTML = ''; return; }
+  const l = j.linear;
+  const lin = !j.ticket ? '<span class="meta">No ticket: not posted.</span>'
+    : !l ? (j.autoPost ? '<span class="meta">Posting to Linear…</span>' : `<button id="postBtn">Post to ${esc(j.ticket)}</button>`)
+    : l.state === 'posting' ? '<span class="meta">Posting to Linear…</span>'
+    : l.state === 'update' ? `<button id="postBtn">Post update to ${esc(j.ticket)}</button>`
+    : l.state === 'posted' ? `✔ Posted: <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.url)}</a>`
+    : `<span style="color:var(--bad)">Posting failed: ${esc(l.error)}</span> <button id="postBtn">Retry</button>`;
+  const html = `<div class="row" style="margin-top:14px"><b>Report</b><span style="flex:1"></span>${lin}<button id="copyBtn">Copy</button></div><div class="report">${md(j.report)}</div>`;
+  if ($('reportBox').dataset.k === html) return;
+  $('reportBox').dataset.k = html;
+  $('reportBox').innerHTML = html;
+  $('copyBtn').onclick = () => navigator.clipboard.writeText(j.report).then(() => toast('Report copied'));
+  if ($('postBtn')) $('postBtn').onclick = async () => { $('postBtn').disabled = true; await post(`/api/qa/${current}/post`); poll(); };
+}
+
+function notify(j) {
+  const body = j.state === 'done' ? `Report ready: ${j.result}` : 'The agent has a question for you';
+  document.title = (j.state === 'waiting' ? '❓ ' : '✔ ') + 'AI QA Agent';
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification(`QA ${j.ticket || 'run'}`, { body });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) document.title = 'Circuly QA agent'; });
+document.addEventListener('click', () => { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); }, { once: true });
+
+$('startBtn').onclick = async () => {
+  const apps = [...$('apps').querySelectorAll('input:checked')].map((i) => i.value);
+  $('startBtn').disabled = true;
+  const j = await post('/api/qa/start', { headless: $('browserSeg').querySelector('.on').dataset.mode === 'headless', ticket: $('ticket').value, instructions: $('instr').value, apps, autoPost: $('autoPost').checked });
+  $('startBtn').disabled = false;
+  if (j && j.id) { $('ticket').value = ''; $('instr').value = ''; open(j.id); }
+};
+$('stopBtn').onclick = async () => { if (confirm('Stop the agent? Nothing is posted to Linear.')) { await post(`/api/qa/${current}/stop`); poll(); loadHist(); } };
+$('hist').onclick = (e) => { const d = e.target.closest('[data-del]'); if (d) { e.stopPropagation(); delRun(d.dataset.del); return; } const li = e.target.closest('li[data-id]'); if (li) open(li.dataset.id); };
+$('browserSeg').onclick = (e) => { const b = e.target.closest('button[data-mode]'); if (!b) return; for (const x of $('browserSeg').children) x.classList.toggle('on', x === b); };
+async function delRun(id) {
+  if (!confirm('Delete this task, its report and screenshots? This cannot be undone. (A comment already posted to Linear stays there.)')) return;
+  if (!(await post(`/api/qa/${id}/delete`))) return;
+  if (id === current) showNew(); else loadHist();
+}
+$('delBtn').onclick = () => delRun(current);
+// Edit = copy the task into New task, change it, start it again (a run's history itself never changes).
+$('editBtn').onclick = () => {
+  if (!R) return;
+  $('ticket').value = R.ticket || '';
+  $('instr').value = R.instructions || '';
+  for (const c of $('apps').querySelectorAll('input')) c.checked = (R.apps || []).includes(c.value);
+  for (const b of $('browserSeg').children) b.classList.toggle('on', b.dataset.mode === (R.headless ? 'headless' : 'headed'));
+  $('autoPost').checked = R.autoPost !== false;
+  $('instr').focus();
+  toast('Copied into New task: change it and click Start agent.');
+};
+$('newBtn').onclick = () => { showNew(); $('ticket').focus(); };
+window.addEventListener('popstate', () => { const id = runInUrl(); if (id) open(id, false); else showNew(false); });
+
+// First load: the run in the URL, else the live run (its URL is set), else a new task.
+loadHist().then((j) => {
+  const id = runInUrl();
+  if (id) open(id, false);
+  else if (j.active) { history.replaceState(null, '', `/qa?run=${encodeURIComponent(j.active.id)}`); open(j.active.id, false); }
+});
+setInterval(() => { if (R && (['working', 'waiting', 'starting'].includes(R.state) || R.alive)) poll(); else if (R && R.linear && R.linear.state === 'posting') poll(); }, 1500);
+setInterval(loadHist, 10000);
+</script>
+</body>
+</html>

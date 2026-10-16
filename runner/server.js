@@ -3,6 +3,7 @@
 // Tabs: Run (suite / file / test / last failed, headed or headless, queue, live log, rerun),
 // Reports (open, PDF, zip, delete, compare), History (pass rate, unstable tests), Settings (.env),
 // Claude (Ask Claude on a failed test, see runner/claude.js). tests/ is watched so the counts stay right.
+// /qa = QA agent: tests a Linear ticket or instructions in the dev apps (runner/qa-agent.js).
 //
 // It starts the Playwright CLI as a child process and streams the output to the page.
 // The summary reporter prints @@TOTAL / @@RUNNING / @@DONE lines (when TEST_RUNNER_UI is set),
@@ -537,6 +538,37 @@ function readBody(req) {
   });
 }
 
+// --- QA agent (/qa) ---
+
+function killTree(pid) {
+  if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(pid), '/T', '/F']);
+  else process.kill(pid, 'SIGTERM');
+}
+
+// What the agent is told about the environment at the start of a run.
+async function qaEnvironment() {
+  const counts = testCounts || (await syncTests().catch(() => null));
+  const apps = [
+    { name: 'Hub', url: process.env.HUB_URL },
+    { name: 'Checkout', url: process.env.CHECKOUT_URL },
+    { name: 'POS', url: process.env.POS_URL },
+    { name: 'CSS', url: process.env.CSS_URL },
+    { name: 'Customer API', url: process.env.CUSTOMER_API_BASE_URL },
+    { name: 'Unified API', url: process.env.UNIFIED_API_BASE_URL },
+  ];
+  const suites = SUITES.map((suite) => ({ id: suite.id, tests: counts && counts.suites[suite.id] ? counts.suites[suite.id].tests : '?' }));
+  return { apps, suites, testRunning: isRunning() ? run.project : null };
+}
+
+const qa = require('./qa-agent')({ root: ROOT, killTree, environment: qaEnvironment });
+process.on('SIGINT', () => { qa.shutdown(); process.exit(0); });
+process.on('exit', () => qa.shutdown());
+
+// QA agent POSTs start a Claude process and a browser: only from the runner's own page.
+function fromRunnerPage(req) {
+  return req.headers['x-runner'] === '1' && /^(localhost|127\.0\.0\.1):\d+$/.test(req.headers.host || '');
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const p = url.pathname;
@@ -615,6 +647,39 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/api/claude/stop' && req.method === 'POST') {
       claude.stop();
+      return json(res, 200, { ok: true });
+    }
+
+    // ---- QA agent (runner/qa-agent.js) ----
+    if (req.method === 'GET' && p === '/qa') {
+      res.writeHead(200, { 'Content-Type': TYPES['.html'] });
+      return res.end(fs.readFileSync(path.join(__dirname, 'qa.html')));
+    }
+    if (p === '/api/qa/runs' && req.method === 'GET') return json(res, 200, { runs: qa.list(), active: qa.active() });
+    if (p.startsWith('/api/qa/run/') && req.method === 'GET') {
+      const found = qa.get(p.slice('/api/qa/run/'.length), Number(q('since')) || 0);
+      return found ? json(res, 200, found) : json(res, 404, { error: 'Run not found.' });
+    }
+    if (p.startsWith('/qa/file/') && req.method === 'GET') {
+      const [id, name] = p.slice('/qa/file/'.length).split('/');
+      const file = qa.file(id, name);
+      if (!file) {
+        res.writeHead(404);
+        return res.end('Not found');
+      }
+      res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'image/png' });
+      return fs.createReadStream(file).pipe(res);
+    }
+    if (p.startsWith('/api/qa/') && req.method === 'POST') {
+      if (!fromRunnerPage(req)) return json(res, 403, { error: 'Only from the runner page.' });
+      const body = await readBody(req);
+      if (p === '/api/qa/start') return json(res, 200, { id: await qa.start(body) });
+      const m = p.match(/^\/api\/qa\/([\w-]+)\/(reply|stop|post|delete)$/);
+      if (!m) return json(res, 404, { error: 'Not found' });
+      if (m[2] === 'reply') qa.reply(m[1], body);
+      if (m[2] === 'stop') qa.stop(m[1]);
+      if (m[2] === 'delete') qa.remove(m[1]);
+      if (m[2] === 'post') return json(res, 200, await qa.postToLinear(m[1]));
       return json(res, 200, { ok: true });
     }
 

@@ -51,6 +51,11 @@ npm run runner                     # browser test runner http://localhost:4455 (
 #                                    Test sync: tests/ is watched → counts per suite + added/deleted shown; "⟳ Sync tests" by hand
 #                                    Claude tab: "🤖 Ask Claude" on a failed test → claude CLI (owner's login) proposes a fix read-only;
 #                                    "Apply fix" edits (backup in reports/.claude-backup, "Undo") and reruns that test. runner/claude.js
+#                                    🧪 QA agent (http://localhost:4455/qa, runner/qa-agent.js + qa-agent-prompt.md + qa.html): Linear ticket or
+#                                    instructions → claude -p (sonnet, owner's plan login, no API key) asks a test plan first, tests the dev apps
+#                                    with Playwright MCP (headed/headless), curl, may run a suite (asks first); [[ASK]] / [[FIELDS]] / [[REPORT]]
+#                                    markers; first report auto-posted to Linear (separate haiku call, the agent has no Linear write). Runs in
+#                                    runner/runs/ (git-ignored, last 10 shown); one run at a time; stopped after 15 idle min or a looping agent.
 npm run summary                    # open reports/index.html: every suite, its runs of the last 3 days → click a run for summary + error log
 npm run report                     # Playwright report of the newest run (screenshots, video, trace); npm run report -- hub-e2e
 # Reports: reports/<suite>/<start time>/ {index.html, html-report/, test-results/, summary.json} + <start time>.zip (download);
@@ -242,7 +247,7 @@ Example spec: `tests/unified-api/orders/orders.spec.ts`.
 - Stripe Payment Element: tabs `getByRole('tab', { name })`; card inputs `name=number|expiry|cvc`;
   SEPA `getByRole('textbox', { name: 'IBAN' })`.
 - Owner-requested fixed pauses: 5 s after payment Select and Pay, 30 s before the DB order check.
-- Adyen (Shopify): buttons `selection-btn-{scheme|sepadirectdebit|paypal|ideal|twint}`; choosing one hides
+- Adyen (Shopify): buttons `selection-btn-{scheme|sepadirectdebit|paypal|ideal|twint|applepay|googlepay} (Apple Pay + Google Pay only checked visible)`; choosing one hides
   the others, "Change payment" (`change-payment-method`, 2 in DOM → use the visible one) brings them back;
   Select = `select-payment-method`. Braintree (Shopware 6): Drop-in buttons "Paying with Card|PayPal|Google Pay".
   Mollie: method buttons `mollie-payment-method-{creditcard|ideal|bancontact|kbc|sepa}` are on the CONTACT-FORM
@@ -293,7 +298,7 @@ file contents that are already saved on disk.
   CSS shows invoice_number (invoice-_24110); /css/invoices/<invoices.id>. Delivery "Change shipping date" = calendar dialog + "Shift all future deliveries".
   File order (css-e2e fullyParallel: false): 01-css-login writes css-data.json → 02..05 → 99-cancel-and-report runs LAST (owner).
   Read css-data.json INSIDE tests/beforeEach, never at describe level (files load before 01 runs → old customer).
-  Add new product (owner): product active + allow_order_create + type 'consumable' + stock > 0 (findCssProduct, one variant → step 03);
+  Add new product (owner): product active + allow_order_create + type 'consumable' + stock > 0 (findCssProduct); step 02 "Select a variant" shows even for one variant, clicking it opens step 03 (2026-10-16);
   Finalize → dialog "Confirm order" → "Subscribe now" → +1 order of the customer. CSS product Search → 500 page (bug) → click in the list.
   Update payment method: link → /css/update-payment-method → button → /en/pay/<token> (Stripe form, "Save payment method"; not saved).
   Cancel form: type → "Cancellation reason *" (first option, owner) → message → Pickup Date (normal only; calendar: free days lack class
