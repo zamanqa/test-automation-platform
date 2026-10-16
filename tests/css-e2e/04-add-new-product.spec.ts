@@ -26,6 +26,13 @@ test.describe('CSS - add new product', () => {
     await cssPage.page.getByRole('button', { name: 'Add new product' }).click();
     await cssPage.page.getByRole('heading', { name: product!.title, exact: true, level: 3 }).first().click();
 
+    // CHECK: step 02 "Select a variant" (also shown for a product with one variant)
+    await expect(cssPage.page).toHaveURL(new RegExp(`step=02&product=${product!.product_id}`));
+    await expect(cssPage.page.getByRole('heading', { name: 'Select a variant', level: 4 })).toBeVisible();
+
+    // ACTION: pick the variant (opens step 03 by itself)
+    await cssPage.page.getByRole('button', { name: new RegExp(`^${product!.title}`) }).first().click();
+
     // CHECK: step 03 of that product: quantity 1, frequency, start date
     await expect(cssPage.page).toHaveURL(new RegExp(`step=03&product=${product!.product_id}`));
     await expect(cssPage.page.getByRole('heading', { name: product!.title, level: 3 })).toBeVisible();

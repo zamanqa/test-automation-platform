@@ -69,6 +69,9 @@ export class CssPage {
   async chooseCancellationType(type: 'Normal cancellation' | 'Extraordinary cancellation') {
     await this.page.getByRole('button', { name: 'Cancellation type *' }).click();
     await this.page.getByRole('option', { name: type, exact: true }).click();
+    // wait until the type list is closed, else its options are still found as "reasons"
+    await expect(this.page.getByRole('option', { name: type, exact: true })).toBeHidden();
+    await expect(this.page.getByRole('button', { name: 'Cancellation type *' })).toContainText(type);
   }
 
   /** Cancel form: "Cancellation reason *" (appears after the type) → the first reason in the list. Returns its text. */
@@ -114,10 +117,16 @@ export class CssPage {
     await this.stripeFrame().locator('input[name="cvc"]').fill(card.cvc);
   }
 
-  /** Payment page (outstanding amount): card → "Pay …". */
+  /** Payment page (outstanding amount): card → "Pay …" until the page says "1 invoice settled". */
   async payByCard(card: Card) {
     await this.fillCard(card);
-    await this.page.getByRole('button', { name: /^Pay / }).click();
+    const payButton = this.page.getByRole('button', { name: /^Pay / });
+    const settled = this.page.getByText(/invoices? settled/);
+    // a click right after the card is typed can be lost (nothing happens) → click again
+    await expect(async () => {
+      if (await payButton.isVisible()) await payButton.click();
+      await expect(settled).toBeVisible({ timeout: 15_000 });
+    }, 'payment page shows the invoice as settled').toPass({ timeout: 60_000 });
   }
 
   /** Payment page (update payment method): card → "Save payment method". */
