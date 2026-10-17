@@ -71,7 +71,7 @@ so to run only the API suites you only need the API, database and test-data grou
 
 ### 3.3 `reports/` folder (created automatically)
 
-Every run writes `reports/<suite>/<start time>/`. Runs older than 3 days are deleted.
+Every run writes `reports/<suite>/<start time>/`. Runs older than 5 days are deleted.
 
 ### 3.4 GitHub Actions secrets (only for running in CI)
 
@@ -127,7 +127,7 @@ Stop switches all crons back on.
 ## 6. Reports
 
 ```bash
-npm run summary            # reports/index.html — every suite, runs of the last 3 days
+npm run summary            # reports/index.html — every suite, runs of the last 5 days
 npm run report             # Playwright report of the newest run (screenshots, video, trace)
 npm run report -- hub-e2e  # newest run of one suite
 ```

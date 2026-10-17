@@ -4,16 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Circuly merges</title>
+<script>
+  // light / dark as chosen with the theme button (saved in this browser); else the system setting
+  try { const theme = localStorage.getItem('theme'); if (theme) document.documentElement.dataset.theme = theme; } catch {}
+</script>
 <style>
   :root {
     --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #677085; --line: #e3e6ec;
     --accent: #3b5bdb; --accent-text: #fff; --ok: #2f9e44; --warn: #e67700; --bad: #e03131; --code: #f1f3f5;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa2b4; --line: #2d313b;
       --accent: #5c7cfa; --accent-text: #fff; --ok: #51cf66; --warn: #ffa94d; --bad: #ff6b6b; --code: #121418;
     }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa2b4; --line: #2d313b;
+    --accent: #5c7cfa; --accent-text: #fff; --ok: #51cf66; --warn: #ffa94d; --bad: #ff6b6b; --code: #121418;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -59,7 +67,7 @@
 <header>
   <h1>Merges</h1>
   <span>What landed on development or main in the last days, when, and what is not in the other branch yet. Read from GitHub (origin), nothing is changed.</span>
-  <a href="/" style="margin-left:auto" id="backLink">← Test runner</a>
+  <a href="/" style="margin-left:auto" id="backLink">← Automation Hub</a>
 </header>
 
 <main>
@@ -94,7 +102,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-// shown as a tab inside the test runner: no back link needed
+// shown as a tab inside the Automation Hub: no back link needed
 if (window.top !== window) $('backLink').hidden = true;
 let data = null;
 

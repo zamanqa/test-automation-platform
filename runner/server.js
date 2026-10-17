@@ -1,8 +1,8 @@
-// Test runner in the browser: npm run runner → http://localhost:4455
+// Circuly Automation Hub (test runner in the browser): npm run runner → http://localhost:4455
 //
 // Tabs: Run (suite / file / test / last failed, headed or headless, queue, live log, rerun),
-// Reports (open, PDF, zip, delete, compare), History (pass rate, unstable tests), Settings (.env),
-// Claude (Ask Claude on a failed test, see runner/claude.js). tests/ is watched so the counts stay right.
+// Reports (open, PDF, zip, delete, compare), History (pass rate, unstable tests), Settings (.env).
+// tests/ is watched so the counts stay right.
 // /qa = QA agent: tests a Linear ticket or instructions in the dev apps (runner/qa-agent.js).
 // /coverage = coverage agent: reads the project repos and lists missing test cases (runner/coverage-agent.js).
 //
@@ -24,7 +24,6 @@ const PORT = Number(process.env.RUNNER_PORT || 4455);
 const ROOT = path.resolve(__dirname, '..');
 const REPORTS = path.join(ROOT, 'reports');
 const PLAYWRIGHT_CLI = path.join(ROOT, 'node_modules', '@playwright', 'test', 'cli.js');
-const claude = require('./claude');
 require('dotenv').config({ path: path.join(ROOT, '.env') });
 
 // The suites (Playwright projects) that can be run. browser: false = API suite, headed/headless makes no difference.
@@ -55,8 +54,6 @@ function send(event) {
   const data = `data: ${JSON.stringify(event)}\n\n`;
   for (const res of listeners) res.write(data);
 }
-
-claude.init((event) => send(event)); // Claude's answer goes to the page like the test log
 
 function state() {
   const waiting = queue.map((item) => ({ id: item.id, description: item.description, at: item.at }));
@@ -396,7 +393,7 @@ function readJson(file, fallback) {
 }
 
 /** Reports and history entries older than this are deleted. Same rule in src/reporters/summary-reporter.ts. */
-const KEEP_DAYS = 3;
+const KEEP_DAYS = 5;
 
 /** True when a run name (2026-09-28_20-15-03 = its start time) is older than KEEP_DAYS. */
 function isOlderThanKeepDays(run) {
@@ -613,45 +610,6 @@ const server = http.createServer(async (req, res) => {
       send({ type: 'progress', state: state() });
       return json(res, 200, { ok: true });
     }
-    // ---- Claude (runner/claude.js) ----
-    if (p === '/api/claude' && req.method === 'GET') return json(res, 200, { state: claude.claudeState(), lines: claude.claudeLines() });
-    if (p === '/api/claude/suggest' && req.method === 'POST') {
-      const body = await readBody(req);
-      // only a test from Playwright's own list (buildRun refuses anything else)
-      const built = await buildRun({ project: body.project, scope: 'test', file: body.file, line: body.line });
-      // run = the report folder where it failed (History tab); only a real run folder of that suite is passed on
-      const run = runFolder(built.suite.id, body.run) ? body.run : null;
-      claude.suggest({ suite: built.suite.id, run, file: `tests/${body.file}`, line: String(body.line), title: built.what, choice: { project: body.project, file: body.file, line: body.line } });
-      return json(res, 200, { ok: true });
-    }
-    if (p === '/api/claude/apply' && req.method === 'POST') {
-      if (isRunning()) throw new Error('A test run is going — apply the fix after it has finished.');
-      const body = await readBody(req);
-      const headed = body.headed !== false; // the page sends its "3. Mode" choice; headed when not given
-      claude.apply(async (test) => {
-        // rerun only that test, now or after the queue. The fix may move the test → read the list again
-        // and find it by its title; if it is not found (renamed), rerun the whole file.
-        const files = await listTests(test.choice.project, true);
-        const file = files.find((f) => f.file === test.choice.file);
-        const found = file && file.tests.find((t) => t.title === test.title);
-        const choice = found
-          ? { project: test.choice.project, scope: 'test', file: test.choice.file, line: found.line, headed }
-          : { project: test.choice.project, scope: 'file', file: test.choice.file, headed };
-        queue.push({ id: nextQueueId++, choice, description: `Rerun after Claude's fix: ${test.title}`, at: Date.now() });
-        send({ type: 'progress', state: state() });
-        startNextFromQueue();
-      });
-      return json(res, 200, { ok: true });
-    }
-    if (p === '/api/claude/undo' && req.method === 'POST') {
-      claude.undo();
-      return json(res, 200, { ok: true });
-    }
-    if (p === '/api/claude/stop' && req.method === 'POST') {
-      claude.stop();
-      return json(res, 200, { ok: true });
-    }
-
     // ---- QA agent (runner/qa-agent.js) ----
     if (req.method === 'GET' && p === '/qa') {
       res.writeHead(200, { 'Content-Type': TYPES['.html'] });

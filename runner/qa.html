@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Circuly QA agent</title>
+<script>
+  // light / dark as chosen with the theme button (saved in this browser); else the system setting
+  try { const theme = localStorage.getItem('theme'); if (theme) document.documentElement.dataset.theme = theme; } catch {}
+</script>
 <style>
   :root {
     --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #677085; --line: #e3e6ec;
@@ -11,11 +15,16 @@
     --code: #f1f3f5; --me: #e7ecff;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa2b4; --line: #2d313b;
       --accent: #5c7cfa; --accent-text: #fff; --ok: #51cf66; --warn: #ffa94d; --bad: #ff6b6b; --idle: #5c6370;
       --code: #121418; --me: #252b40;
     }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa2b4; --line: #2d313b;
+    --accent: #5c7cfa; --accent-text: #fff; --ok: #51cf66; --warn: #ffa94d; --bad: #ff6b6b; --idle: #5c6370;
+    --code: #121418; --me: #252b40;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -88,7 +97,7 @@
 <header>
   <h1>QA agent</h1>
   <span>Give it a Linear ticket or instructions. It asks you questions, tests the dev apps and APIs, can run a suite, and posts the report to the ticket.</span>
-  <a href="/" style="margin-left:auto" id="backLink">← Test runner</a>
+  <a href="/" style="margin-left:auto" id="backLink">← Automation Hub</a>
 </header>
 
 <main>
@@ -146,7 +155,7 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-// shown as a tab inside the test runner: no back link needed
+// shown as a tab inside the Automation Hub: no back link needed
 if (window.top !== window) $('backLink').hidden = true;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let current = null;   // id of the run shown
