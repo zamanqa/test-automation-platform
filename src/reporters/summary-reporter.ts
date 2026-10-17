@@ -12,7 +12,7 @@ import type { FullConfig, FullResult, Reporter, Suite, TestCase, TestResult, Tes
 
 const REPORTS = 'reports';
 /** Reports and history entries older than this are deleted. */
-const KEEP_DAYS = 3;
+const KEEP_DAYS = 5;
 /** This run's folder, set in playwright.config.ts (e.g. reports/hub-e2e/2026-09-28_20-15-03). */
 const RUN_DIR = process.env.REPORT_RUN_DIR ?? `${REPORTS}/all/unknown-run`;
 
@@ -46,6 +46,12 @@ export default class SummaryReporter implements Reporter {
   onTestEnd(test: TestCase, result: TestResult) {
     // @@DONE <status> <file:line> <project> › <title>   (file:line lets the runner re-run exactly this test)
     const fileLine = `${test.location.file.replace(/\\/g, '/').split('/tests/')[1]}:${test.location.line}`;
+    // a failed try that will run again is not counted yet, only logged
+    const runsAgain = result.status !== 'passed' && result.status !== 'skipped' && result.retry < test.retries;
+    if (runsAgain) {
+      if (process.env.TEST_RUNNER_UI) console.log(`↻ ${result.status} on try ${result.retry + 1}, running it again: ${test.titlePath().slice(3).join(' › ')}`);
+      return;
+    }
     if (process.env.TEST_RUNNER_UI) console.log(`@@DONE ${result.status} ${fileLine} ${test.parent.project()?.name ?? ''} › ${test.titlePath().slice(3).join(' › ')}`);
   }
 
@@ -79,7 +85,7 @@ export default class SummaryReporter implements Reporter {
     fs.writeFileSync(path.join(RUN_DIR, 'summary.json'), JSON.stringify(summary, null, 2));
     addToHistory(summary);
 
-    // delete this suite's runs older than 3 days, then refresh the overview page
+    // delete this suite's runs older than 5 days, then refresh the overview page
     deleteOldRuns(path.dirname(RUN_DIR));
     writeOverview();
     this.ran = true;
@@ -102,8 +108,8 @@ export default class SummaryReporter implements Reporter {
   /** One line of the report for one test. */
   private makeRow(test: TestCase): Row {
     const lastRun = test.results[test.results.length - 1];
+    // the last try decides: failed first + passed on the retry = passed, failed twice = failed
     let status: Status = 'passed';
-    if (test.outcome() === 'flaky') status = 'flaky'; // failed first, passed on retry
     if (test.outcome() === 'unexpected') status = 'failed';
     if (lastRun.status === 'skipped') status = 'skipped';
 
@@ -113,9 +119,13 @@ export default class SummaryReporter implements Reporter {
       const skipNote = test.annotations.find((annotation) => annotation.type === 'skip');
       note = skipNote?.description ?? 'skipped';
     }
-    if (status === 'failed' || status === 'flaky') {
+    if (status === 'failed') {
       failedRun = test.results.find((run) => run.status !== 'passed') ?? lastRun;
       note = firstLine(clean(failedRun.error?.message ?? failedRun.status));
+    }
+    if (status === 'passed' && test.results.length > 1) {
+      const firstTry = test.results[0];
+      note = `passed on try 2 (try 1: ${firstLine(clean(firstTry.error?.message ?? firstTry.status))})`;
     }
 
     let seconds = 0;
@@ -221,7 +231,7 @@ export default class SummaryReporter implements Reporter {
   th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
   tr.failed td { background: #fff5f5; }
   .title { font-weight: 600; } .file, .time { color: var(--grey); font-size: 12px; } .time { white-space: nowrap; }
-  .note { color: var(--red); font-family: Consolas, monospace; font-size: 12px; } tr.skipped .note { color: var(--grey); }
+  .note { color: var(--red); font-family: Consolas, monospace; font-size: 12px; } tr.skipped .note, tr.passed .note { color: var(--grey); }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; color: white; font-size: 11px; text-transform: uppercase; }
   .badge.passed { background: var(--green); } .badge.failed { background: var(--red); } .badge.flaky { background: var(--yellow); } .badge.skipped { background: var(--grey); }
   .red { color: var(--red); } a.jump { margin-left: 6px; font-family: "Segoe UI", sans-serif; }

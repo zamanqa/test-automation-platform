@@ -4,13 +4,15 @@ import 'dotenv/config';
 import { HUB_AUTH_STATE } from './src/config/paths';
 
 // Browser size of every UI suite (hub, checkout, POS, CSS):
-//   run with --headed or --debug (you watch the browser) → the window opens maximized and fits the screen
+//   run with --headed or --debug (you watch the browser) → the window opens maximized, page zoom 90%
 //   run without --headed (no window)          → fixed size 1920 x 1080
 // (PW_HEADED passes "--headed" on to the test workers, which do not see the command line.)
+// 90% = Chrome's --force-device-scale-factor: the whole page is drawn smaller, so more fits on the
+// screen; Playwright still clicks in page pixels, so the tests work the same.
 if (process.argv.includes('--headed') || process.argv.includes('--debug')) process.env.PW_HEADED = '1';
 const browserWindow =
   process.env.PW_HEADED === '1'
-    ? { viewport: null, deviceScaleFactor: undefined, launchOptions: { args: ['--start-maximized'] } }
+    ? { viewport: null, deviceScaleFactor: undefined, launchOptions: { args: ['--start-maximized', '--force-device-scale-factor=0.9'] } }
     : { viewport: { width: 1920, height: 1080 } };
 
 // Report folder of THIS run: reports/<suite>/<start time>/  (e.g. reports/hub-e2e/2026-09-28_20-15-03)
@@ -58,7 +60,8 @@ export default defineConfig({
   testDir: 'tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // A failed (or skipped, see src/fixtures/index.ts) test runs once more straight away, before the next test.
+  retries: 1,
   timeout: 60_000,
   expect: { timeout: 15_000 },
 

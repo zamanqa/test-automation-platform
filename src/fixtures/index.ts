@@ -163,4 +163,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   molliePayment: async ({ page }, use) => use(new MolliePayment(page)),
 });
 
+// test.skip(condition, reason) on the first try fails the try instead, so the test runs once more
+// straight away (test data may be there a moment later). Only on the last try is it really skipped.
+const playwrightSkip = test.skip;
+function skipOrRetry(condition: boolean, reason: string) {
+  const info = test.info();
+  if (condition && info.retry < info.project.retries) {
+    throw new Error(`Skipped on try ${info.retry + 1} (${reason}) - trying once more`);
+  }
+  playwrightSkip(condition, reason);
+}
+test.skip = skipOrRetry as typeof test.skip;
+
 export { expect };

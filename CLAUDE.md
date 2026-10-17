@@ -45,12 +45,13 @@ npm run checkout                   # headed; all checkout spec files at once (on
 npm run stripe / adyen / braintree / mollie   # one checkout file, headed (full screen)
 npm run api:customer               # all customer-api files, 4 files at a time (tests in a file in order)
 npm run api:customer -- invoices.spec          # one customer-api file (API = no browser, --headed has no effect)
-npm run runner                     # browser test runner http://localhost:4455 (runner/server.js): run suite/file/test/last failed, headed or headless,
+npm run runner                     # "Circuly Automation Hub" (renamed from test runner 2026-10-17) http://localhost:4455 (runner/server.js): run suite/file/test/last failed, headed or headless,
 #                                    queue, live log, rerun failed (reruns use the chosen Mode, 2026-09-29), env check, notification;
 #                                    🐞 Debug (UI suites) = --debug: Chrome + Playwright Inspector, paused before each test (setup too), F10 step / F8 resume; Reports (open/PDF/zip/delete/compare), History, Settings
 #                                    Test sync: tests/ is watched → counts per suite + added/deleted shown; "⟳ Sync tests" by hand
-#                                    Claude tab: "🤖 Ask Claude" on a failed test → claude CLI (owner's login) proposes a fix read-only;
-#                                    "Apply fix" edits (backup in reports/.claude-backup, "Undo") and reruns that test. runner/claude.js
+#                                    UI (2026-10-17): sun/moon button in the header switches light/dark (saved in localStorage "theme", agent frames follow; default = system), live passed/failed/skipped chips in the header, counter cards, toasts instead of alerts. Run tab = one page (no page scroll above 1100 px width; the left column scrolls inside, the log fills the rest).
+#                                    The Claude tab ("Ask Claude" / Apply fix / Undo, runner/claude.js) was removed 2026-10-17 (owner).
+#                                    RUNNER_PORT=<port> starts a second copy (e.g. to check a change while the owner's runner keeps 4455).
 #                                    🧪 QA agent tab (header, page /qa in a frame, kept while switching tabs; /#qa opens it; runner/qa-agent.js + qa-agent-prompt.md + qa.html): Linear ticket or
 #                                    instructions → claude -p (sonnet, owner's plan login, no API key) asks a test plan first, tests the dev apps
 #                                    with Playwright MCP (headed/headless), curl, may run a suite (asks first); [[ASK]] / [[FIELDS]] / [[REPORT]]
@@ -73,16 +74,17 @@ npm run runner                     # browser test runner http://localhost:4455 (
 #   ../circuly_core_api_lumen (backend hub, CSS, POS), ../checkout-api (backend checkout). Always on development = GitHub.
 #   NEVER make any change in these 3 repos (no edits, commits, branches, pushes to GitHub) — read only.
 #   A bug found there → create a bug ticket (Linear) instead, after the owner says so.
-npm run summary                    # open reports/index.html: every suite, its runs of the last 3 days → click a run for summary + error log
+npm run summary                    # open reports/index.html: every suite, its runs of the last 5 days → click a run for summary + error log
 npm run report                     # Playwright report of the newest run (screenshots, video, trace); npm run report -- hub-e2e
 # Reports: reports/<suite>/<start time>/ {index.html, html-report/, test-results/, summary.json} + <start time>.zip (download);
-# runs older than 3 days are deleted (reporter + runner); runner lists are paginated (10 per page). A suite folder appears on its first run. --last-failed works per suite (reports/<suite>/.last-run.json).
+# runs older than 5 days (KEEP_DAYS in summary-reporter.ts + runner/server.js, was 3 until 2026-10-17) are deleted (reporter + runner); runner lists are paginated (10 per page). A suite folder appears on its first run. --last-failed works per suite (reports/<suite>/.last-run.json).
 ```
 
 ## How the code connects (read in this order)
 
 1. `playwright.config.ts` — the 4 projects, Chrome (`channel: 'chrome'`), workers: 1 per suite.
-   UI suites: headless = 1920x1080; `--headed`/`--debug` = maximized window that fits the screen (`browserWindow`, 2026-09-30).
+   UI suites: headless = 1920x1080; `--headed`/`--debug` = maximized window that fits the screen (`browserWindow`, 2026-09-30)
+   at 90% page zoom (`--force-device-scale-factor=0.9`, 2026-10-17; clicks stay correct, devicePixelRatio 0.9).
 2. `src/fixtures/index.ts` — **the wiring point**. Test asks for `{ db, unifiedApi, orderListPage, ... }`
    → fixture creates the class.
 3. `src/config/env.ts` — every `.env` variable, validated per group on first use (`env.hub.HUB_URL`, one getter per group).
@@ -132,6 +134,15 @@ Example spec: `tests/unified-api/orders/orders.spec.ts`.
   "Add item" in Create order takes its product from `findProductForOrderItem` (active, has an active variant, not qa_auto),
   typed into "Select product" — the list options have no name, they are matched by the title text.
 - Missing test data → `test.skip(!row, 'reason')`, never a silent pass.
+- Retries (owner, 2026-10-17): `retries: 1` for every suite. A failed test runs once more straight away, before the next
+  test (Playwright does this itself, checked). A `test.skip(cond, reason)` on the first try fails that try instead
+  (src/fixtures/index.ts skipOrRetry), so it is retried too; only the last try really skips. Passed tests run once.
+  Report: the last try decides (owner): fail → pass = passed (note "passed on try 2 (try 1: …)"), fail → fail = failed,
+  skip → skip = skipped; our summary has no flaky any more (Playwright's own html-report still says flaky). Runner counts only the last try (`↻ ... running it again` line in the log).
+  A retry repeats data changes of the failed try (e.g. a second checkout payment).
+- Creating a subscription (hub "Create subscription" / "Process subscriptions"): read order_items.subscription_type
+  (getOrderItemSubscriptionType by SKU or name); Generate a serial only for normal and consumable, never for digital
+  (the hub hides Generate for digital).
 - A suite may not import another suite's API client / page objects (lint enforces).
 - Chains that passed ids between tests became one test with `test.step`.
 - `tests/**/mode: 'default'` keeps tests in a file in order without skipping on failure.

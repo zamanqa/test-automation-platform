@@ -4,6 +4,7 @@ import { countOrderNotes } from '@db/queries/hub/notes';
 import { findProductForOrderItem } from '@db/queries/hub/products';
 import {
   countSubscriptionsOfOrder,
+  getOrderItemSubscriptionType,
   findCheckoutOrderWithSubscription,
   findCheckoutOrderWithoutSubscription,
   findLatestOrder,
@@ -140,8 +141,13 @@ test.describe('Hub - more order actions', () => {
     await orderListPage.open(order!.order_id);
     await orderListPage.openFirstOrder(order!.order_id);
 
-    // ACTION: Process subscriptions → first product: Generate serial → Submit
-    await orderDetailPage.processFirstSubscription();
+    // SETUP: Process subscriptions → subscription type of the first product from order_items
+    const productName = await orderDetailPage.openProcessSubscriptions();
+    const type = await getOrderItemSubscriptionType(db.hub, order!.order_id, productName);
+    expect(type, `order_items row of ${order!.order_id} named "${productName}"`).toBeDefined();
+
+    // ACTION: first product: Generate serial (normal / consumable only) → Submit
+    await orderDetailPage.submitFirstProcessSubscription(type!);
 
     // CHECK: the order has a subscription in the database
     await expect

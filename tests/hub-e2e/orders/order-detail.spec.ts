@@ -1,5 +1,5 @@
 import { test, expect } from '@fixtures';
-import { findCheckoutOrderWithoutSubscription, type OrderRow } from '@db/queries/hub/orders';
+import { findCheckoutOrderWithoutSubscription, getOrderItemSubscriptionType, type OrderRow } from '@db/queries/hub/orders';
 import { countRecurringPaymentsOf } from '@db/queries/hub/recurring-payments';
 import { findSubscriptionRow } from '@db/queries/hub/subscriptions';
 
@@ -41,17 +41,19 @@ test.describe('Hub - order detail', () => {
   });
 
   test('creates a subscription for every product without one', async ({ orderDetailPage, db }) => {
-    // SETUP: product rows that still have a "Create subscription" button
+    // SETUP: wait for the product list (it loads after the order info), then the rows with "Create subscription"
+    await orderDetailPage.waitForCreateSubscriptionButtons();
     const rows = await orderDetailPage.rowsWithoutSubscription();
-    test.skip(rows.length === 0, `Order ${order.order_id} has no product without subscription`);
 
     for (const row of rows) {
       await test.step(`row ${row}`, async () => {
-        // SETUP: subscription type of the row (normal / consumable / digital)
-        const type = await orderDetailPage.subscriptionTypeOf(row);
+        // SETUP: subscription type of the row from order_items (normal / consumable / digital)
+        const sku = await orderDetailPage.skuOf(row);
+        const type = await getOrderItemSubscriptionType(db.hub, order.order_id, sku);
+        expect(type, `order_items row of ${order.order_id} with SKU ${sku}`).toBeDefined();
 
-        // ACTION: open the dialog, generate a serial (not for digital), submit, close
-        await orderDetailPage.createSubscription(row, type);
+        // ACTION: open the dialog, generate a serial (normal / consumable only), submit, close
+        await orderDetailPage.createSubscription(row, type!);
 
         // CHECK: the row now links to a subscription, and it is in the database
         const subscriptionId = await orderDetailPage.subscriptionIdOf(row);

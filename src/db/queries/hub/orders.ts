@@ -275,6 +275,15 @@ export function findOrderItems(hub: Database, orderId: string) {
   );
 }
 
+/** subscription_type (normal / consumable / digital) of an order item, found by its SKU or product name. Or undefined. */
+export async function getOrderItemSubscriptionType(hub: Database, orderId: string, skuOrName: string) {
+  const row = await hub.maybeOne<{ subscription_type: string }>(
+    'SELECT subscription_type FROM order_items WHERE order_id = $1 AND (sku = $2 OR name = $2) ORDER BY id ASC LIMIT 1',
+    [orderId, skuOrName],
+  );
+  return row?.subscription_type;
+}
+
 /** Number of items (order_items rows) of an order. */
 export async function countOrderItems(hub: Database, orderId: string): Promise<number> {
   const row = await hub.one<{ count: string }>('SELECT COUNT(*) AS count FROM order_items WHERE order_id = $1', [orderId]);

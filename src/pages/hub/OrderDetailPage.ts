@@ -69,14 +69,22 @@ export class OrderDetailPage {
 
   /**
    * "Process subscriptions" → the dialog lists every product of the order, each with its own
-   * "Generate" (serial number) and "Submit". Submits the FIRST product only; returns nothing.
+   * "Generate" (serial number) and "Submit". Returns the name of the first product to submit.
    */
-  async processFirstSubscription() {
+  async openProcessSubscriptions(): Promise<string> {
     await this.page.getByRole('button', { name: 'Process subscriptions' }).click();
     const dialog = this.page.getByRole('dialog').last();
     await expect(dialog.getByRole('heading', { name: 'Create subscriptions' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Submit' }).first()).toBeVisible();
-    await dialog.getByRole('button', { name: 'Generate' }).first().click();
+    return (await dialog.locator('.text-base.font-bold').first().innerText()).trim();
+  }
+
+  /** In the "Process subscriptions" dialog: generates a serial (normal / consumable only) and submits the first product. */
+  async submitFirstProcessSubscription(type: string) {
+    const dialog = this.page.getByRole('dialog').last();
+    if (type === 'normal' || type === 'consumable') {
+      await dialog.getByRole('button', { name: 'Generate' }).first().click();
+    }
     await dialog.getByRole('button', { name: 'Submit' }).first().click();
   }
 
@@ -136,11 +144,17 @@ export class OrderDetailPage {
     return customerId;
   }
 
-  /** Opens the dialog, generates a serial number (not for digital), submits and closes. */
+  /** SKU shown in the "Product" column of a product row (second line). */
+  async skuOf(rowIndex: number): Promise<string> {
+    const text = (await this.productRows.nth(rowIndex).locator('td').nth(2).innerText()).trim();
+    return (text.split('\n')[1] ?? '').trim();
+  }
+
+  /** Opens the dialog, generates a serial number (normal / consumable only, not digital), submits and closes. */
   async createSubscription(rowIndex: number, type: string) {
     await this.productRows.nth(rowIndex).locator('button', { hasText: 'Create subscription' }).click();
     await expect(this.page.getByText('Create a subscription for the order to start charging recurring payments')).toBeVisible();
-    if (type !== 'digital') {
+    if (type === 'normal' || type === 'consumable') {
       await this.page.locator('[data-cy="btn-serial-number-generate"]').click();
     }
     await this.page.locator('button', { hasText: 'Submit' }).click();
