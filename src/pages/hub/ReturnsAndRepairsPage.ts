@@ -31,6 +31,27 @@ export class ReturnsAndRepairsPage {
     await expect(dialog).toHaveCount(0);
   }
 
+  /** Returns list → search a text (serial number, order id ...). */
+  async searchReturns(text: string) {
+    await this.page.goto('en/cms/returns');
+    await this.search(text);
+  }
+
+  /** Returns list → search the serial → Handle; returns the "Handle return" dialog. */
+  async openHandle(serialNumber: string) {
+    const row = this.page.locator('tr, [role="row"]').filter({ has: this.page.locator(`a[href*="/en/cms/assets/${serialNumber}"]`) });
+    // the list sometimes drops the search while it loads → search again until the row shows
+    await expect(async () => {
+      await this.searchReturns(serialNumber);
+      await expect(row).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000 });
+    await row.locator('button', { hasText: 'Handle' }).click();
+    const dialog = this.page.getByRole('dialog');
+    await expect(dialog.getByText('Handle return')).toBeVisible();
+    await expect(dialog.getByText(serialNumber)).toBeVisible();
+    return dialog;
+  }
+
   /** Repairs list → open the row of this serial number → Start repair → Submit. */
   async repair(serialNumber: string) {
     await this.page.goto('en/cms/repairs');

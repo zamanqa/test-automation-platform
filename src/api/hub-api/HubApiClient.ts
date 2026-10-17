@@ -38,6 +38,32 @@ export class HubApiClient extends BaseApiClient {
   triggerInvoiceCharge(companyId: string): Promise<APIResponse> {
     return this.send('POST', `${this.root}/${companyId}/invoices/charge-queue`, { failOnStatusCode: true });
   }
+
+  /** POST {root}/{companyId}/subscriptions/{subscriptionId}/sync - queues the auto renew job of one subscription */
+  syncSubscription(companyId: string, subscriptionId: string): Promise<APIResponse> {
+    return this.send('POST', `${this.root}/${companyId}/subscriptions/${subscriptionId}/sync`);
+  }
+
+  /**
+   * POST {root}/{companyId}/system/cron?class=&queue=&wait=false - pushes one job and runs the worker of that queue.
+   * data goes to the job, e.g. { subscription_ids: [...] } so it only handles those subscriptions.
+   */
+  launchCron(companyId: string, className: string, queue: string, data: Record<string, unknown> = {}): Promise<APIResponse> {
+    return this.send('POST', `${this.root}/${companyId}/system/cron`, {
+      params: { class: className, queue, wait: false },
+      data,
+    });
+  }
+
+  /** POST {root}/{companyId}/system/crons/{cronId}/run - runs one cms_crons command now (e.g. the queue worker of a queue), pushes no job */
+  runCron(companyId: string, cronId: string): Promise<APIResponse> {
+    return this.send('POST', `${this.root}/${companyId}/system/crons/${cronId}/run`);
+  }
+
+  /** POST {root}/{companyId}/subscriptions/process-to-reactivate - finds (and with do_not_process false, reactivates) subscriptions */
+  processToReactivate(companyId: string, data: { subscription_ids: string[]; do_not_process?: boolean }): Promise<APIResponse> {
+    return this.send('POST', `${this.root}/${companyId}/subscriptions/process-to-reactivate`, { data });
+  }
 }
 
 /** The number from a message like "... num of required queues: 3" */

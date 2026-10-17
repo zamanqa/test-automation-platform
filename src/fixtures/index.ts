@@ -18,6 +18,13 @@ import { ReturnsAndRepairsPage } from '@pages/hub/ReturnsAndRepairsPage';
 import { CustomerPage } from '@pages/hub/CustomerPage';
 import { ProductPage } from '@pages/hub/ProductPage';
 import { DebtCollectionPage } from '@pages/hub/DebtCollectionPage';
+import { HubListPage } from '@pages/hub/HubListPage';
+import { VoucherPage } from '@pages/hub/VoucherPage';
+import { AssetPage } from '@pages/hub/AssetPage';
+import { PaymentPage } from '@pages/hub/PaymentPage';
+import { RecurringTabPage } from '@pages/hub/RecurringTabPage';
+import { OrderActionsPage } from '@pages/hub/OrderActionsPage';
+import { EmailSendPage } from '@pages/hub/EmailSendPage';
 import { CheckoutPage } from '@pages/checkout/CheckoutPage';
 import { PosPage } from '@pages/pos/PosPage';
 import { CssPage } from '@pages/css/CssPage';
@@ -58,6 +65,13 @@ type TestFixtures = {
   customerPage: CustomerPage;
   productPage: ProductPage;
   debtCollectionPage: DebtCollectionPage;
+  hubListPage: HubListPage;
+  voucherPage: VoucherPage;
+  assetPage: AssetPage;
+  paymentPage: PaymentPage;
+  recurringTabPage: RecurringTabPage;
+  orderActionsPage: OrderActionsPage;
+  emailSendPage: EmailSendPage;
 
   // checkout, POS and CSS pages
   checkoutPage: CheckoutPage;
@@ -133,6 +147,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   customerPage: async ({ page }, use) => use(new CustomerPage(page)),
   productPage: async ({ page }, use) => use(new ProductPage(page)),
   debtCollectionPage: async ({ page }, use) => use(new DebtCollectionPage(page)),
+  hubListPage: async ({ page }, use) => use(new HubListPage(page)),
+  voucherPage: async ({ page }, use) => use(new VoucherPage(page)),
+  assetPage: async ({ page }, use) => use(new AssetPage(page)),
+  paymentPage: async ({ page }, use) => use(new PaymentPage(page)),
+  recurringTabPage: async ({ page }, use) => use(new RecurringTabPage(page)),
+  orderActionsPage: async ({ page }, use) => use(new OrderActionsPage(page)),
+  emailSendPage: async ({ page }, use) => use(new EmailSendPage(page)),
   checkoutPage: async ({ page }, use) => use(new CheckoutPage(page)),
   posPage: async ({ page }, use) => use(new PosPage(page)),
   cssPage: async ({ page }, use) => use(new CssPage(page)),

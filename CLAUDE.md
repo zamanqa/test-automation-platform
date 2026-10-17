@@ -241,6 +241,53 @@ Example spec: `tests/unified-api/orders/orders.spec.ts`.
   remark, buyer reference on, delivery countries be,de,no,es,at, minimum_age 14. Checkout DB (db.checkout, CHECKOUT_DB_* = test DB
   (set 2026-10-16; password in single quotes in .env): carts (voucher_*, shipping_cost, shipping_method json, alpha2, tax_percent),
   cart_items, orders (order_number = hub order_id, order_amount, tax_amount, payment_method card|offlinegateway, meta.contact.buyer_reference).
+- 2026-10-17 Subscription crons (tests/hub-e2e/subscriptions/subscription-crons.spec.ts, 7 tests, API + DB + hub page, all pass; queries
+  src/db/queries/hub/subscription-crons.ts; hubApi.syncSubscription / launchCron / processToReactivate). Expected values come from
+  subscription_settings (dev: auto_renew on, notice_period 10, custom duration 1, extend_by_billing_cycle off, max_duration 30,
+  return_until_period 5, reactivate_period 2, force_reactivate on). Owner rules: force_reactivate is ALWAYS on after a test (cleanup);
+  before any check wait until public.jobs has no rows in queue subscription / subscriptions (+ notify for reactivate).
+  Facts: sync only queues SubscriptionAutoRenewQueue (worker 'subscription' runs about every 30 min on dev) → the test then runs
+  the existing worker with POST system/crons/{cms_crons id}/run (hubApi.runCron, getQueueWorkerCronId; same for 'notify').
+  Do NOT push a second SubscriptionAutoRenewQueue via system/cron: when two run at once the job is locked and re-queues itself
+  as a RecurringPaymentQueue 400 s later (jobs-table wait timed out, and that job invoices due RPs of the subscription).
+  Auto renew: normal adds auto_renew_duration months (interval NOT used unless extend_by_billing_cycle), consumable × frequency_interval;
+  new RP billing_date = old end + 1 day; amount = extension price → variant extension price → subscription price; end date maths = PHP
+  strtotime (+1 month overflows). SubscriptionEndActiveQueue takes date(subscription_end) < today - 1 day (so end = today - 2, not -1)
+  for EVERY expired active auto_renew=false subscription of the company → test skips if others exist. process-to-reactivate uses
+  return_until (window today-2×period .. today-period), not subscription_end; do_not_process:true = dry run only; job on 'notify' queue;
+  always send subscription_ids (else all ~155 pending returns are reactivated). Reactivation does not move subscription_end.
+  Dev SMTP fails for this company → email_entries rows have success=false; tests check the row exists, success is INFO only.
+- 2026-10-17 List filters (tests/hub-e2e/filters/list-filters.spec.ts, 24 read-only, all pass; HubListPage + queries hub/list-filters.ts):
+  filters opened by URL in the hub's format field=mode:value (no mode = "Is" = ILIKE exact, contains:, matches:a||b, greater:,
+  between:YYYY-MM-DDandYYYY-MM-DD → from 00:00 to 23:59:59). The hub calls core.api.development.circuly.io/2026-10/merchant/...
+  and adds a default created_at=days:0and-30 to EVERY list (recurring payments: billing_date=days:0and30) → set the date or clear
+  it with created_at= (an empty value is dropped from the URL, so after a reload the default is back). Lists that join order_items
+  (subscriptions, returns) count a subscription once per item. Only invoices compare booleans exactly; elsewhere booleans go
+  through ILIKE (Postgres rejects boolean ILIKE in raw SQL, but the hub filters for active/valid/enabled/failed still matched the DB).
+  Dev: failed transactions have no invoice_type 'recurring payment'.
+- 2026-10-17 docs/hub-missing-cases.md → new spec files, one per tab (owner: all cases, new files only). Results + "real behaviour" table +
+  bugs are at the end of that doc. Bugs: CIR-1595 (bulk "Mark fulfilled" fulfils a CANCELLED order and starts its subscriptions; O2
+  deletes subscriptions it causes; PUT /orders answers first and keeps working, so O11 takes a cancelled order not changed for 10 min), CIR-1596 (claim upload accepts any file), CIR-1597 (duplicate product SKU accepted; PR1b deletes the
+  product by title), CIR-1598 (Edit site drops address changes). Facts:
+  - "Resend email" icon button (no name): find tooltip [data-tw-tooltip] with the text → button [data-tw-tooltip-owner=id] (EmailSendPage).
+    On payment ("Payment - Successful"), order ("Order - Confirmation"), subscription and quote ("Order - Quote"; email_entries.order_id =
+    draft id) pages. The invoice page has NO email action; its PDF download writes e_invoices rows. Dev SMTP fails → success is INFO only.
+  - Vouchers: Vuetify selects → click the .v-field wrapper; product include needs "+" after picking; codes are hard-deleted.
+  - Assets: "Change asset status" is never disabled; for a rented-out asset the dialog only offers the current status. Export (assets and
+    repairs) = DataExportQueue job on queue 'data-export'.
+  - Recurring tab: default billing_date=days:0and30, use per_page=50; Quantity is disabled for normal subscriptions.
+  - Orders: Edit Item dialog holds Reserve/remove serial. Cancel is allowed for open/fulfilled/delivered unless restrict_cancellation and
+    the subscription started > cancellation_offset days ago. A quote has no edit (/orders/drafts/{id}/edit loads an ORDER, nothing links it).
+  - Customers: "Edit customer" address fields are disabled. Sections on the General tab are found by heading (the sidebar has the same words).
+  - Returns: Handle → Mark as returned disables open RPs (enabled=false, not deleted); Mark as bought → 'manual bought out'. A failed test
+    restarts the worker, so module-level lists (used ids) are emptied → the picker must also skip by DB state. Handle search needs a retry.
+  - Products: list bulk edit can change msrp/purchase/buyout/type/allow_order_create; NOT active, stock or translations (product edit page
+    only for shop_system circuly). Attribute option row buttons have no names: up, down, edit, delete; edit mode: save, cancel.
+    products.id is NOT increasing per company (another company has 7508) → never use MAX(id) to find new products; use the qa_auto title.
+  - Debt collection claim page data = debtist_claims row (file_urls is JSON text inside jsonb; original_amount_due = sum of the invoices).
+  - Stores: location ids are shortened in the list ("retailer-...57558920") → check the "1-1 of 1" total + name. POS login opens
+    pos_settings.identifier (test company: hz-dev.pos.circuly.org, not the .env POS). Sites have no delete in the UI.
+  Hub texts: circuly_frontend_mono_v2/packages/mono-i18n/src/lang/hub/lang/en.json.
 - Customer "Process open orders" is enabled only if the customer has an unprocessed order → test takes a checkout order
   not in subscriptions (owner) and opens ITS customer. The dialog shows one order at a time ("1 / N"); ‹ › stay disabled
   until that order is processed → the test checks the shown order belongs to the customer (DB), then Close.
@@ -257,6 +304,10 @@ Example spec: `tests/unified-api/orders/orders.spec.ts`.
   Filters (owner: test every page's filter): Order list Status (?status=open|completed, count = draft_orders), started Status
   (?status=active, count = subscriptions), search on all 3 lists, Add item checkbox filters (option → products via product_attribute_values
   on variants = findProductsOfFilterOption). Cancelled quote id must not show in the list. Customer step without data → Review is NOT a bug (owner).
+- 2026-10-16 POS tests/pos-e2e/navigation-validation.spec.ts (13, read-only, new file): search no match / clear, newest first, 404 + Take me back, sign out
+  + protected redirect, language, Create order Reset / Back / Ship to store / voucher / no items / wrong email. Facts: list is always sort=created_at&desc=true,
+  no column header sorts (clicks do nothing); the POS accepts any voucher code (no check, shown on Review); the language menu stays open after a switch
+  (Escape first); Continue never blocks a step, "Create order" prints raw zod lines (customer.billing.city - ...) = bug CIR-1593 → 1 soft fail + 1 fail.
 
 ## Token efficiency in this repo
 
@@ -356,3 +407,9 @@ file contents that are already saved on disk.
   Dashboard has 3 tables (Your Orders tab, Upcoming deliveries tab, Your invoices) → never use a bare 'tbody tr' (openFirstDelivery picks the
   table with column "Shipping date"). The "Upcoming deliveries" tab only shows while an active consumable subscription exists → after 99
   it is gone; 05 skips then (run the full suite: 05 comes before 99).
+- 2026-10-16 CSS tests/css-e2e/07-portal-checks.spec.ts (15, read-only, new file): logout + protected redirect, login "Email must be valid.",
+  Revoke page (/public/revoke), 404 + Take me back (→ dashboard), unknown invoice ("Invoice not found."), unknown subscription / order
+  (empty page = bug CIR-1594 → 2 fail), Load more invoices, invoice details + PDF (<invoice_number>.pdf) + View order, subscription serial
+  + order button, orders list + "Show consumable orders" switch, order Edit customer details, profile edit form, deliveries period list
+  (1/3/6/9/12 months), quantity 0 / interval 0 refused (zod min 1, DB unchanged). Facts: the dashboard card shows "cancelled" when
+  cancelled_by_customer (order + buyout pages show the real status, e.g. "pending return"); /de/ URLs follow the customer's locale.
