@@ -175,3 +175,14 @@ export function findProductsOfFilterOption(hub: Database, companyId: string) {
     [companyId],
   );
 }
+
+/** Quote id of the newest quote of the retailer (not deleted, any customer) = first row of the Order list, or undefined. */
+export async function getNewestQuoteId(hub: Database, retailerId: string, companyId: string) {
+  const row = await hub.maybeOne<{ draft_id: string }>(
+    `SELECT draft_id FROM public.draft_orders
+      WHERE retailer_id = $1 AND company_id = $2 AND deleted_at IS NULL
+      ORDER BY created_at DESC, id DESC LIMIT 1`,
+    [retailerId, companyId],
+  );
+  return row?.draft_id;
+}
